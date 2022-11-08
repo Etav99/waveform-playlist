@@ -50,16 +50,18 @@ export default class {
 
   touchstart(e) {
     e.preventDefault();
-    this.active = true;
+    const offsetX = getXOffsetOnTouchEvent(e);
+    if (offsetX) {
+      this.active = true;
+      this.startX = offsetX;
+      const startTime = pixelsToSeconds(
+        this.startX,
+        this.samplesPerPixel,
+        this.sampleRate
+      );
 
-    this.startX = getXOffsetOnTouchEvent(e);
-    const startTime = pixelsToSeconds(
-      this.startX,
-      this.samplesPerPixel,
-      this.sampleRate
-    );
-
-    this.track.ee.emit("select", startTime, startTime, this.track);
+      this.track.ee.emit("select", startTime, startTime, this.track);
+    }
   }
 
   mousemove(e) {
@@ -72,7 +74,8 @@ export default class {
   touchmove(e) {
     if (this.active) {
       e.preventDefault();
-      this.emitSelection(getXOffsetOnTouchEvent(e));
+      const offsetX = getXOffsetOnTouchEvent(e);
+      if (offsetX) this.emitSelection(offsetX);
     }
   }
 
@@ -93,7 +96,8 @@ export default class {
   touchend(e) {
     if (this.active) {
       e.preventDefault();
-      this.complete(getXOffsetOnTouchEvent(e));
+      const offsetX = getXOffsetOnTouchEvent(e);
+      if (offsetX) this.complete(offsetX);
     }
   }
 
