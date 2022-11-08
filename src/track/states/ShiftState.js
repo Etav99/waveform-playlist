@@ -38,10 +38,12 @@ export default class {
 
   touchstart(e) {
     e.preventDefault();
-
-    this.active = true;
-    this.el = e.target;
-    this.prevX = getXOffsetOnTouchEvent(e);
+    const offsetX = getXOffsetOnTouchEvent(e);
+    if (offsetX) {
+      this.active = true;
+      this.el = e.target;
+      this.prevX = offsetX;
+    }
   }
 
   mousemove(e) {
@@ -54,7 +56,8 @@ export default class {
   touchmove(e) {
     if (this.active) {
       e.preventDefault();
-      this.emitShift(getXOffsetOnTouchEvent(e));
+      const offsetX = getXOffsetOnTouchEvent(e);
+      if (offsetX) this.emitShift(offsetX);
     }
   }
 
@@ -75,7 +78,8 @@ export default class {
   touchend(e) {
     if (this.active) {
       e.preventDefault();
-      this.complete(getXOffsetOnTouchEvent(e));
+      const offsetX = getXOffsetOnTouchEvent(e);
+      if (offsetX) this.complete(offsetX);
     }
   }
 
