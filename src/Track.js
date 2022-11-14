@@ -188,6 +188,13 @@ export default class {
       end = point1;
     }
 
+    if (start <= trackStart) {
+      start = trackStart;
+    }
+    if (end >= trackEnd) {
+      end = trackEnd;
+    }
+
     console.log("");
     console.log("start cut: "+start);
     console.log("end cut: "+end);
