@@ -170,13 +170,13 @@ export default class {
     const trackStart = this.getStartTime();
     const trackEnd = this.getEndTime();
 
-    // startTime and endTime are just for rendering purposes...
-    console.log("===============================");
-    console.log("trackStart: "+this.startTime);
-    console.log("trackEnd: "+this.endTime);
-    console.log("cueIn: "+this.cueIn);
-    console.log("cueOut: "+this.cueOut);
-    console.log("duration: "+this.duration);
+    // //  startTime and endTime are just for rendering purposes...
+    // console.log("===============================");
+    // console.log("trackStart: "+this.startTime);
+    // console.log("trackEnd: "+this.endTime);
+    // console.log("cueIn: "+this.cueIn);
+    // console.log("cueOut: "+this.cueOut);
+    // console.log("duration: "+this.duration);
 
     let start;
     let end;
@@ -195,16 +195,17 @@ export default class {
       end = trackEnd;
     }
 
-    console.log("");
-    console.log("start cut: "+start);
-    console.log("end cut: "+end);
     let new_cueIn = this.cueIn;
     let new_cueOut = this.cueOut - (end - start);
-    console.log("new_cueOut: "+new_cueOut);
-    console.log("");
 
-    // 16 bit per sample
-    console.log("buffer duration: "+(this.buffer.length * 2) / (this.buffer.sampleRate * this.buffer.numberOfChannels) );
+    // console.log("");
+    // console.log("start cut: "+start);
+    // console.log("end cut: "+end);
+    // console.log("new_cueOut: "+new_cueOut);
+    // console.log("");
+
+    // // 16 bit per sample
+    // console.log("buffer duration: "+(this.buffer.length * 2) / (this.buffer.sampleRate * this.buffer.numberOfChannels) );
     let buffer_duration = (this.buffer.length * 2) / (this.buffer.sampleRate * this.buffer.numberOfChannels);
 
     let timeSplitOffset = start - this.getStartTime() + this.cueIn;
@@ -223,9 +224,9 @@ export default class {
       // outside interval right
       secondPartPercentage = 0;
     }
-    console.log("firstPartPercentage: "+firstPartPercentage);
-    console.log("secondPartPercentage: "+secondPartPercentage);
 
+    // console.log("firstPartPercentage: "+firstPartPercentage);
+    // console.log("secondPartPercentage: "+secondPartPercentage);
 
     if (start <= trackEnd && end >= trackStart) {
       const channels = this.buffer.numberOfChannels;
@@ -234,8 +235,8 @@ export default class {
       const firstPartNewLength = firstPartPercentage * this.buffer.length;
       const secondPartNewLength = secondPartPercentage * this.buffer.length;
 
-      console.log("firstPartNewLength: "+firstPartNewLength);
-      console.log("secondPartNewLength: "+secondPartNewLength);
+      // console.log("firstPartNewLength: "+firstPartNewLength);
+      // console.log("secondPartNewLength: "+secondPartNewLength);
 
       try {
         newArrayBuffer = audioContext.createBuffer(
@@ -294,11 +295,11 @@ export default class {
       this.setCues(new_cueIn, new_cueOut);
       this.playout.buffer = this.buffer;
 
-      console.log("trackStart: "+this.startTime);
-      console.log("trackEnd: "+this.endTime);
-      console.log("cueIn: "+this.cueIn);
-      console.log("cueOut: "+this.cueOut);
-      console.log("duration: "+this.duration);
+      // console.log("trackStart: "+this.startTime);
+      // console.log("trackEnd: "+this.endTime);
+      // console.log("cueIn: "+this.cueIn);
+      // console.log("cueOut: "+this.cueOut);
+      // console.log("duration: "+this.duration);
 
     }
   }
