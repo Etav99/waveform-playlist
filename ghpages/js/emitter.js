@@ -414,7 +414,7 @@ ee.on('audiorenderingfinished', function (type, data) {
 
     downloadUrl = window.URL.createObjectURL(data);
     console.log(downloadUrl);
-    displayDownloadLink(downloadUrl);
+    displayDownloadLink(downloadUrl, type);
   }
 });
 
