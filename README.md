@@ -1,14 +1,11 @@
-[![npm](https://img.shields.io/npm/dm/waveform-playlist.svg)](https://www.npmjs.com/package/waveform-playlist)
+[![npm](https://img.shields.io/npm/dm/waveform-playlist.svg)](https://www.npmjs.com/package/colmena-waveform-playlist)
 
-## Sponsors
+## Colmena Audio Editor
 
-<p align="center">
-  <a href="https://moises.ai/" target="_blank">
-    <img width="222px" src="https://raw.githubusercontent.com/naomiaro/waveform-playlist/main/ghpages/img/logos/moises-ai.svg">
-  </a>
-</p>
+This is Colmena Audio Editor, a fork from the great Waveform-Playlist! Be aware that the following text is still from the original
+waveform-playlist project and it is not updated yet to match colmena-waveform-playlist new features, like cut and split.
 
-[Become a sponsor](https://github.com/sponsors/naomiaro)
+More at: https://blog.colmena.media/
 
 # Waveform Playlist
 
