@@ -9,7 +9,8 @@ export default class extends Loader {
       if (
         this.src.type.match(/audio.*/) ||
         // added for problems with Firefox mime types + ogg.
-        this.src.type.match(/video\/ogg/)
+        this.src.type.match(/video\/ogg/) ||
+        this.src.type.match(/video\/webm/)
       ) {
         const fr = new FileReader();
 
