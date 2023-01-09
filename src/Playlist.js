@@ -1,5 +1,4 @@
 import _defaults from "lodash.defaultsdeep";
-
 import h from "virtual-dom/h";
 import diff from "virtual-dom/diff";
 import patch from "virtual-dom/patch";
@@ -15,7 +14,6 @@ import Playout from "./Playout";
 import AnnotationList from "./annotation/AnnotationList";
 
 import RecorderWorkerFunction from "./utils/recorderWorker";
-import ExportWavWorkerFunction from "./utils/exportWavWorker";
 
 export default class {
   constructor() {
@@ -44,7 +42,12 @@ export default class {
 
   // TODO extract into a plugin
   initExporter() {
-    this.exportWorker = new InlineWorker(ExportWavWorkerFunction);
+    this.exportWorker = new Worker(
+      new URL("./utils/exportWavWorker.js", import.meta.url),
+      {
+        type: "module",
+      }
+    );
   }
 
   // TODO extract into a plugin
@@ -664,11 +667,10 @@ export default class {
     */
     await Promise.all(setUpChain);
     const audioBuffer = await this.offlineAudioContext.startRendering();
-
     if (type === "buffer") {
       this.ee.emit("audiorenderingfinished", type, audioBuffer);
       this.isRendering = false;
-    }  else if (type === "wav" || type === "mp3") {
+    } else if (["wav", "mp3"].includes(type)) {
       this.exportWorker.postMessage({
         command: "init",
         config: {
@@ -693,17 +695,16 @@ export default class {
         buffer: [audioBuffer.getChannelData(0), audioBuffer.getChannelData(1)],
       });
 
-
       /* opus support not implemented yet */
       if (type === "mp3") {
         this.exportWorker.postMessage({
           command: "exportMP3",
-          type: "audio/mp3"
+          type: "audio/mp3",
         });
       } else {
         this.exportWorker.postMessage({
           command: "exportWAV",
-          type: "audio/wav"
+          type: "audio/wav",
         });
       }
     }
