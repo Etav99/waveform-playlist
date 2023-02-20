@@ -671,7 +671,7 @@ export default class {
     if (type === "buffer") {
       this.ee.emit("audiorenderingfinished", type, audioBuffer);
       this.isRendering = false;
-    } else if (["wav", "mp3"].includes(type)) {
+    } else if (["wav", "mp3", "opus", "aac"].includes(type)) {
       this.exportWorker.postMessage({
         command: "init",
         config: {
@@ -696,13 +696,23 @@ export default class {
         buffer: [audioBuffer.getChannelData(0), audioBuffer.getChannelData(1)],
       });
 
-      /* opus support not implemented yet */
+
       if (type === "mp3") {
         this.exportWorker.postMessage({
           command: "exportMP3",
           type: "audio/mp3",
         });
-      } else {
+      } else if (type === "opus") {
+        this.exportWorker.postMessage({
+          command: "exportOpus",
+          type: "audio/webm",
+        });
+      } else if (type === "aac") {
+        this.exportWorker.postMessage({
+          command: "exportAAC",
+          type: "audio/aac",
+        });
+      }        else {
         this.exportWorker.postMessage({
           command: "exportWAV",
           type: "audio/wav",
