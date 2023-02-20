@@ -3,7 +3,7 @@
 ## Colmena Audio Editor
 
 This is Colmena Audio Editor, a fork from the great Waveform-Playlist! Be aware that the following text is still from the original
-waveform-playlist project and it is not updated yet to match colmena-waveform-playlist new features, like cut and split.
+waveform-playlist project and it is not updated yet to match colmena-waveform-playlist new features, like track cut and split, and new export functionality which adds support for mp3 and aac export.
 
 More at: https://blog.colmena.media/
 
