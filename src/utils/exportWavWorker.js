@@ -128,7 +128,7 @@ async function exportOpus(type) {
         },
         output(chunk, meta) {
             total_encoded_size += chunk.byteLength;
-            muxer.addAudioChunk(chunk, meta, chunk.timestamp - firstAudioTimestamp);
+            muxer.addAudioChunk(chunk, meta);
         },
     });
 
@@ -173,14 +173,12 @@ async function exportOpus(type) {
 
         let audio_data = new AudioData({
             timestamp: 1000000 * base_time,
-//            timestamp: 0,
             data: planar_data,
             numberOfChannels: channels,
             numberOfFrames: samplesPerFrame,
             sampleRate: sampleRate,
             format: "s16-planar",
         });
-
         encoder.encode(audio_data);
 
         remaining -= samplesPerFrame;
@@ -198,7 +196,6 @@ async function exportOpus(type) {
 
         let audio_data = new AudioData({
             timestamp: 1000000 * base_time,
-//    	    timestamp: 0,
             data: planar_data,
             numberOfChannels: channels,
             numberOfFrames: remaining,
@@ -214,7 +211,7 @@ async function exportOpus(type) {
 
     console.log("OPUS encoding done.");
 
-    const audioBlob = new Blob(buffer, { type });
+    const audioBlob = new Blob([buffer], { type });
     postMessage(audioBlob);
 }
 
@@ -276,16 +273,16 @@ async function exportAAC(type) {
         planar_data.set(left, 0);
         planar_data.set(right, samplesPerFrame);
 
+        base_time = (i * samplesPerFrame) / sampleRate;
+
         let audio_data = new AudioData({
-//            timestamp: 10e6 * base_time,
-            timestamp: 0,
+            timestamp: 1000000 * base_time,
             data: planar_data,
             numberOfChannels: channels,
             numberOfFrames: samplesPerFrame,
             sampleRate: sampleRate,
             format: "s16-planar",
         });
-        base_time += buffer.duration;
         encoder.encode(audio_data);
 
         remaining -= samplesPerFrame;
@@ -299,9 +296,10 @@ async function exportAAC(type) {
         planar_data.set(left, 0);
         planar_data.set(right, remaining);
 
+        base_time += samplesPerFrame;
+
         let audio_data = new AudioData({
-//            timestamp: base_time * 1000000,
-	    timestamp: 0,
+            timestamp: 1000000 * base_time,
             data: planar_data,
             numberOfChannels: channels,
             numberOfFrames: remaining,
