@@ -103,21 +103,9 @@ function exportWAV(type) {
 }
 
 function exportOpus(type) {
-// place-holder
-  const bufferL = mergeBuffers(recBuffersL, recLength);
-  const bufferR = mergeBuffers(recBuffersR, recLength);
-  const interleaved = interleave(bufferL, bufferR);
-  const dataview = encodeWAV(interleaved);
-  const audioBlob = new Blob([dataview], { type });
+    // TODO: support mono
+    console.log("OPUS encoding ENTER");
 
-  postMessage(audioBlob);
-
-}
-
-async function exportAAC(type) {
-  console.log("AAC encoding ENTER");
-
-        // TODO: support mono
     const channels = 2;
     let number_of_channels = 2;
     var buffer = [];
@@ -138,7 +126,108 @@ async function exportAAC(type) {
     const config = {
         numberOfChannels: channels,
         sampleRate: sampleRate,
-        // codec: "opus",
+        codec: "opus",
+        bitrate: 96000
+    };
+
+    encoder.configure(config);
+
+    const bufferL = mergeBuffers(recBuffersL, recLength);
+    const bufferR = mergeBuffers(recBuffersR, recLength);
+
+    const bufferL3 = new ArrayBuffer(recLength * 2);
+    const bufferR3 = new ArrayBuffer(recLength * 2);
+
+    const samplesL = new DataView(bufferL3);
+    const samplesR = new DataView(bufferR3);
+
+    floatTo16BitPCM(samplesL, 0, bufferL);
+    floatTo16BitPCM(samplesR, 0, bufferR);
+
+    const Mp3L = new Int16Array(bufferL3, 0, recLength);
+    const Mp3R = new Int16Array(bufferR3, 0, recLength);
+
+    var remaining = recLength;
+
+    const samplesPerFrame = 1024;
+    let base_time = 0;
+
+    for (let i = 0; remaining >= samplesPerFrame; i += samplesPerFrame) {
+        var left = Mp3L.subarray(i, i + samplesPerFrame);
+        var right = Mp3R.subarray(i, i + samplesPerFrame);
+        let planar_data = new Int16Array(samplesPerFrame * channels);
+
+        planar_data.set(left, 0);
+        planar_data.set(right, samplesPerFrame);
+
+        let audio_data = new AudioData({
+//            timestamp: 10e6 * base_time,
+            timestamp: 0,
+            data: planar_data,
+            numberOfChannels: channels,
+            numberOfFrames: samplesPerFrame,
+            sampleRate: sampleRate,
+            format: "s16-planar",
+        });
+        base_time += buffer.duration;
+        encoder.encode(audio_data);
+
+        remaining -= samplesPerFrame;
+    }
+
+    if (remaining >= 0) {
+        var left = Mp3L.subarray(recLength - remaining, recLength);
+        var right = Mp3R.subarray(recLength - remaining, recLength);
+        let planar_data = new Int16Array(remaining * channels);
+
+        planar_data.set(left, 0);
+        planar_data.set(right, remaining);
+
+        let audio_data = new AudioData({
+//            timestamp: base_time * 1000000,
+	    timestamp: 0,
+            data: planar_data,
+            numberOfChannels: channels,
+            numberOfFrames: remaining,
+            sampleRate: sampleRate,
+            format: "s16-planar",
+        });
+        encoder.encode(audio_data);
+	    remaining = 0;
+    }
+
+    await encoder.flush();
+
+    console.log("OPUS encoding done.");
+
+    const audioBlob = new Blob(buffer, { type });
+    postMessage(audioBlob);
+}
+
+async function exportAAC(type) {
+    // TODO: support mono
+    console.log("AAC encoding ENTER");
+
+    const channels = 2;
+    let number_of_channels = 2;
+    var buffer = [];
+    let total_encoded_size = 0;
+
+    const encoder = new AudioEncoder({
+        error(e) {
+            console.log(e);
+        },
+        output(chunk, meta) {
+            total_encoded_size += chunk.byteLength;
+            var frameData = new Uint8Array(chunk.byteLength);
+            chunk.copyTo(frameData);
+            buffer.push(frameData);
+        },
+    });
+
+    const config = {
+        numberOfChannels: channels,
+        sampleRate: sampleRate,
         codec: "mp4a.40.2",
         aac: { format: 'adts' },
         bitrate: 96000
@@ -175,7 +264,7 @@ async function exportAAC(type) {
         planar_data.set(right, samplesPerFrame);
 
         let audio_data = new AudioData({
-//            timestamp: base_time * 1000000,
+//            timestamp: 10e6 * base_time,
             timestamp: 0,
             data: planar_data,
             numberOfChannels: channels,
@@ -207,7 +296,7 @@ async function exportAAC(type) {
             format: "s16-planar",
         });
         encoder.encode(audio_data);
-	remaining = 0;
+	    remaining = 0;
     }
 
     await encoder.flush();
@@ -249,12 +338,25 @@ function exportMP3(type) {
     var left = Mp3L.subarray(i, i + samplesPerFrame);
     var right = Mp3R.subarray(i, i + samplesPerFrame);
     var mp3buf = mp3enc.encodeBuffer(left, right);
-      if (mp3buf.length > 0) {
+    if (mp3buf.length > 0) {
         // console.log("remaining time:", Math.round(remaining / sampleRate),"s");
         buffer.push(new Int8Array(mp3buf));
     }
     remaining -= samplesPerFrame;
   }
+
+  if (remaining >= 0) {
+    var left = Mp3L.subarray(recLength - remaining, recLength);
+    var right = Mp3R.subarray(recLength - remaining, recLength);
+
+    var mp3buf = mp3enc.encodeBuffer(left, right);
+    if (mp3buf.length > 0) {
+        // console.log("remaining time:", Math.round(remaining / sampleRate),"s");
+        buffer.push(new Int8Array(mp3buf));
+    }
+	remaining = 0;
+  }
+
   var mp3buf = mp3enc.flush();
   if (mp3buf.length > 0) {
     buffer.push(new Int8Array(mp3buf));
