@@ -102,7 +102,7 @@ function exportWAV(type) {
   postMessage(audioBlob);
 }
 
-function exportOpus(type) {
+async function exportOpus(type) {
     // TODO: support mono
     console.log("OPUS encoding ENTER");
 
