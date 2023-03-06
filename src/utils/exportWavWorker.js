@@ -136,7 +136,8 @@ async function exportOpus(type) {
         numberOfChannels: channels,
         sampleRate: sampleRate,
         codec: "opus",
-        bitrate: 64000
+        bitrate: 64000,
+        opus: { complexity: 9}
     };
 
     encoder.configure(config);
