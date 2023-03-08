@@ -635,8 +635,8 @@ export default class {
     this.isRendering = true;
     this.offlineAudioContext = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(
       2,
-      44100 * this.duration,
-      44100
+      48000 * this.duration,
+      48000
     );
 
     const setUpChain = [];
@@ -675,7 +675,7 @@ export default class {
       this.exportWorker.postMessage({
         command: "init",
         config: {
-          sampleRate: 44100,
+          sampleRate: 48000,
         },
       });
 
