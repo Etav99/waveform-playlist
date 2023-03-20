@@ -129,10 +129,11 @@ export default function () {
     });
 
     const config = {
-      numberOfChannels: channels,
-      sampleRate: sampleRate,
-      codec: "opus",
-      bitrate: 64000,
+        numberOfChannels: channels,
+        sampleRate: sampleRate,
+        codec: "opus",
+        bitrate: 64000,
+        opus: { complexity: 9}
     };
 
     encoder.configure(config);
