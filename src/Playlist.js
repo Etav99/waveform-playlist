@@ -12,7 +12,7 @@ import TimeScale from "./TimeScale";
 import Track from "./Track";
 import Playout from "./Playout";
 import AnnotationList from "./annotation/AnnotationList";
-
+import ExportWavWorkerFunction from "./utils/exportWavWorker";
 import RecorderWorkerFunction from "./utils/recorderWorker";
 
 export default class {
@@ -42,12 +42,7 @@ export default class {
 
   // TODO extract into a plugin
   initExporter() {
-    this.exportWorker = new Worker(
-      new URL("./utils/exportWavWorker.js", import.meta.url),
-      {
-        type: "module",
-      }
-    );
+    this.exportWorker = new InlineWorker(ExportWavWorkerFunction);
   }
 
   // TODO extract into a plugin
@@ -638,7 +633,6 @@ export default class {
       48000 * this.duration,
       48000
     );
-
     const setUpChain = [];
 
     this.ee.emit(
@@ -668,10 +662,10 @@ export default class {
     */
     await Promise.all(setUpChain);
     const audioBuffer = await this.offlineAudioContext.startRendering();
-    if (type === "buffer") {
+    if (["buffer", "mp3", "opus", "aac"].includes(type)) {
       this.ee.emit("audiorenderingfinished", type, audioBuffer);
       this.isRendering = false;
-    } else if (["wav", "mp3", "opus", "aac"].includes(type)) {
+    } else if (type === "wav") {
       this.exportWorker.postMessage({
         command: "init",
         config: {
@@ -696,28 +690,10 @@ export default class {
         buffer: [audioBuffer.getChannelData(0), audioBuffer.getChannelData(1)],
       });
 
-
-      if (type === "mp3") {
-        this.exportWorker.postMessage({
-          command: "exportMP3",
-          type: "audio/mp3",
-        });
-      } else if (type === "opus") {
-        this.exportWorker.postMessage({
-          command: "exportOpus",
-          type: "audio/webm",
-        });
-      } else if (type === "aac") {
-        this.exportWorker.postMessage({
-          command: "exportAAC",
-          type: "audio/aac",
-        });
-      }        else {
-        this.exportWorker.postMessage({
-          command: "exportWAV",
-          type: "audio/wav",
-        });
-      }
+      this.exportWorker.postMessage({
+        command: "exportWAV",
+        type: "audio/wav",
+      });
     }
   }
 
@@ -882,7 +858,8 @@ export default class {
     const selected = this.getTimeSelection();
     const playoutPromises = [];
 
-    const start = (startTime === 0) ? 0 : (startTime || this.pausedAt || this.cursor);
+    const start =
+      startTime === 0 ? 0 : startTime || this.pausedAt || this.cursor;
     let end = endTime;
 
     if (!end && selected.end !== selected.start && selected.end > start) {
