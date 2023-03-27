@@ -98,6 +98,7 @@ export default class {
     this.mediaRecorder.onstop = () => {
       this.chunks = [];
       this.working = false;
+      this.cursor = this.duration + 0.3;
     };
 
     this.recorderWorker = new InlineWorker(RecorderWorkerFunction);
