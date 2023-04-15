@@ -877,21 +877,21 @@ export default class {
     if (this.effectsGraph)
       this.tracks && this.tracks[0].playout.setMasterEffects(this.effectsGraph);
 
-    this.tracks.forEach((track) => {
+
+    for(const track of this.tracks) {
       track.setState("cursor");
-      playoutPromises.push(
-        track.schedulePlay(currentTime, start, end, {
-          shouldPlay: this.shouldTrackPlay(track),
-          masterGain: this.masterGain,
-        })
-      );
-    });
+      let scheduledPlayPromise = track.schedulePlay(currentTime, start, end, {
+        shouldPlay: this.shouldTrackPlay(track),
+        masterGain: this.masterGain,
+      });
+      playoutPromises.push(scheduledPlayPromise);
+    }
 
     this.lastPlay = currentTime;
     // use these to track when the playlist has fully stopped.
     this.playoutPromises = playoutPromises;
-    this.startAnimation(start);
-
+    // wait
+    setTimeout(this.startAnimation(start), Track.playDelay * 1000);
     return Promise.all(this.playoutPromises);
   }
 
@@ -982,6 +982,7 @@ export default class {
   }
 
   startAnimation(startTime) {
+    this.stopAnimation();
     this.lastDraw = this.ac.currentTime;
     this.animationRequest = window.requestAnimationFrame(() => {
       this.updateEditor(startTime);

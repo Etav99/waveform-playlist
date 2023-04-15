@@ -17,7 +17,10 @@ import StereoPanSliderHook from "./render/StereoPanSliderHook";
 
 const MAX_CANVAS_WIDTH = 1000;
 
-export default class {
+export default class Track{
+
+  static playDelay = 0.1;
+
   constructor() {
     this.name = "Untitled";
     this.customClass = undefined;
@@ -469,6 +472,7 @@ export default class {
     is either stopped or plays out naturally.
   */
   schedulePlay(now, startTime, endTime, config) {
+    now += Track.playDelay;
     let start;
     let duration;
     let when = now;
