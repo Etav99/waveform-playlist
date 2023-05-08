@@ -232,10 +232,10 @@ class AnnotationList {
 
                   if (this.playlist.isContinuousPlay) {
                     this.playlist.seek(start, start);
-                    this.playlist.ee.emit("play", start);
+                    this.playlist.ee.emit(PlaylistEvents.PLAY, start);
                   } else {
                     this.playlist.seek(start, end);
-                    this.playlist.ee.emit("play", start, end);
+                    this.playlist.ee.emit(PlaylistEvents.PLAY, start, end);
                   }
                 },
               },

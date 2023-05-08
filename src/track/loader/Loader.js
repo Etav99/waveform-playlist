@@ -1,4 +1,4 @@
-import EventEmitter from "event-emitter";
+import EventEmitter from "eventemitter3";
 
 export const STATE_UNINITIALIZED = 0;
 export const STATE_LOADING = 1;
@@ -6,7 +6,7 @@ export const STATE_DECODING = 2;
 export const STATE_FINISHED = 3;
 
 export default class {
-  constructor(src, audioContext, ee = EventEmitter()) {
+  constructor(src, audioContext, ee = new EventEmitter()) {
     this.src = src;
     this.ac = audioContext;
     this.audioRequestState = STATE_UNINITIALIZED;
@@ -15,7 +15,7 @@ export default class {
 
   setStateChange(state) {
     this.audioRequestState = state;
-    this.ee.emit("audiorequeststatechange", this.audioRequestState, this.src);
+    this.ee.emit(PlaylistEvents.AUDIO_REQUEST_STATE_CHANGE, this.audioRequestState, this.src);
   }
 
   fileProgress(e) {
@@ -29,7 +29,7 @@ export default class {
       percentComplete = (e.loaded / e.total) * 100;
     }
 
-    this.ee.emit("loadprogress", percentComplete, this.src);
+    this.ee.emit(PlaylistEvents.LOAD_PROGRESS, percentComplete, this.src);
   }
 
   fileLoad(e) {

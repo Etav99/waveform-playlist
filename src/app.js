@@ -1,9 +1,9 @@
 import _defaults from "lodash.defaultsdeep";
 import createElement from "virtual-dom/create-element";
-import EventEmitter from "event-emitter";
+import EventEmitter from "eventemitter3";
 import Playlist from "./Playlist";
 
-export function init(options = {}, ee = EventEmitter()) {
+export function init(options = {}, ee = new EventEmitter()) {
   if (options.container === undefined) {
     throw new Error("DOM element container must be given.");
   }
@@ -98,6 +98,6 @@ export function init(options = {}, ee = EventEmitter()) {
   return playlist;
 }
 
-export default function (options = {}, ee = EventEmitter()) {
+export default function (options = {}, ee = new EventEmitter()) {
   return init(options, ee);
 }

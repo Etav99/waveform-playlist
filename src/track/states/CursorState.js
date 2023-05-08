@@ -1,6 +1,6 @@
 import { pixelsToSeconds } from "../../utils/conversions";
 
-export default class {
+export default class CursorState {
   constructor(track) {
     this.track = track;
   }
@@ -12,6 +12,8 @@ export default class {
 
   click(e) {
     e.preventDefault();
+    if(this.track.isFrozen)
+      return;
 
     const startX = e.offsetX;
     const startTime = pixelsToSeconds(
@@ -20,7 +22,7 @@ export default class {
       this.sampleRate
     );
 
-    this.track.ee.emit("select", startTime, startTime, this.track);
+    this.track.ee.emit(PlaylistEvents.SELECT, startTime, startTime, this.track);
   }
 
   static getClass() {

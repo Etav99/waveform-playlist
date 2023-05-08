@@ -26,7 +26,7 @@ export default class {
       this.sampleRate
     );
 
-    this.track.ee.emit("select", startTime, endTime, this.track);
+    this.track.ee.emit(PlaylistEvents.SELECT, startTime, endTime, this.track);
   }
 
   complete(x) {
@@ -36,6 +36,7 @@ export default class {
 
   mousedown(e) {
     e.preventDefault();
+    if(this.track.isFrozen) return;
     this.active = true;
 
     this.startX = e.offsetX;
@@ -45,11 +46,12 @@ export default class {
       this.sampleRate
     );
 
-    this.track.ee.emit("select", startTime, startTime, this.track);
+    this.track.ee.emit(PlaylistEvents.SELECT, startTime, startTime, this.track);
   }
 
   touchstart(e) {
     e.preventDefault();
+    if(this.track.isFrozen) return;
     const offsetX = getXOffsetOnTouchEvent(e);
     if (offsetX) {
       this.active = true;
@@ -60,13 +62,14 @@ export default class {
         this.sampleRate
       );
 
-      this.track.ee.emit("select", startTime, startTime, this.track);
+      this.track.ee.emit(PlaylistEvents.SELECT, startTime, startTime, this.track);
     }
   }
 
   mousemove(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       this.emitSelection(e.offsetX);
     }
   }
@@ -74,6 +77,7 @@ export default class {
   touchmove(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       const offsetX = getXOffsetOnTouchEvent(e);
       if (offsetX) this.emitSelection(offsetX);
     }
@@ -82,6 +86,7 @@ export default class {
   mouseup(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       this.complete(e.offsetX);
     }
   }
@@ -89,6 +94,7 @@ export default class {
   mouseleave(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       this.complete(e.offsetX);
     }
   }
@@ -96,6 +102,7 @@ export default class {
   touchend(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       const offsetX = getXOffsetOnTouchEvent(e);
       if (offsetX) this.complete(offsetX);
     }

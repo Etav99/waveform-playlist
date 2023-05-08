@@ -10,6 +10,8 @@ import { FADEIN, FADEOUT } from "fade-maker";
 import { secondsToPixels, secondsToSamples } from "./utils/conversions";
 import stateClasses from "./track/states";
 
+import Playout from "./Playout";
+
 import CanvasHook from "./render/CanvasHook";
 import FadeCanvasHook from "./render/FadeCanvasHook";
 import VolumeSliderHook from "./render/VolumeSliderHook";
@@ -25,6 +27,9 @@ export default class Track{
     this.name = "Untitled";
     this.customClass = undefined;
     this.waveOutlineColor = undefined;
+    this.customControls = null;
+    this.isFrozen = false;
+
     this.gain = 1;
     this.fades = {};
     this.peakData = {
@@ -38,6 +43,58 @@ export default class Track{
     this.startTime = 0;
     this.endTime = 0;
     this.stereoPan = 0;
+  }
+
+  initialize(trackInfo, audioBuffer, audioContext, masterGainNode, eventEmitter, state, samplesPerPixel, sampleRate)
+  {
+    const info = trackInfo;
+    const name = info.name || "Untitled";
+    const start = info.start || 0;
+    const states = info.states || {};
+    const fadeIn = info.fadeIn;
+    const fadeOut = info.fadeOut;
+    const cueIn = info.cuein || 0;
+    const cueOut = info.cueout || audioBuffer.duration;
+    const gain = info.gain || 1;
+    const muted = info.muted || false;
+    const soloed = info.soloed || false;
+    const peaks = info.peaks || { type: "WebAudio", mono: this.mono };
+    const customClass = info.customClass || undefined;
+    const waveOutlineColor = info.waveOutlineColor || undefined;
+    const stereoPan = info.stereoPan || 0;
+    const effects = info.effects || null;
+
+    // webaudio specific playout for now.
+    const playout = new Playout(audioContext, audioBuffer, masterGainNode);
+
+    this.src = info.src;
+    this.setBuffer(audioBuffer);
+    this.setName(name);
+    this.setEventEmitter(eventEmitter);
+    this.setEnabledStates(states);
+    this.setCues(cueIn, cueOut);
+    this.setCustomClass(customClass);
+    this.setWaveOutlineColor(waveOutlineColor);
+    if (fadeIn !== undefined)
+      this.setFadeIn(fadeIn.duration, fadeIn.shape);
+    if (fadeOut !== undefined)
+      this.setFadeOut(fadeOut.duration, fadeOut.shape);
+    if (peaks !== undefined)
+      this.setPeakData(peaks);
+    this.setState(state);
+    this.setStartTime(start);
+    this.setPlayout(playout);
+    this.setGainLevel(gain);
+    this.setStereoPanValue(stereoPan);
+    if (effects)
+      this.setEffects(effects);
+    if (muted)
+      this.muteTrack(track);
+    if (soloed)
+      this.soloTrack(track);
+    // extract peaks with AudioContext for now.
+    this.calculatePeaks(samplesPerPixel, sampleRate);
+
   }
 
   setEventEmitter(ee) {
@@ -164,11 +221,11 @@ export default class Track{
       buffer1: newArrayBuffer1,
       buffer2: newArrayBuffer2,
     };
-    return this.ee.emit("razorCutFinished", razorCutObject);
+    return this.ee.emit(PlaylistEvents.RAZOR_CUT_FINISHED, razorCutObject);
   }
 
   removePart(point1, point2, audioContext, track) {
-    this.ee.emit("saveCutManipulation", this.buffer, track);
+    this.ee.emit(PlaylistEvents.SAVE_CUT_MANIPULATION, this.buffer, track);
 
     const trackStart = this.getStartTime();
     const trackEnd = this.getEndTime();
@@ -617,7 +674,7 @@ export default class Track{
           title: "Remove track",
         },
         onclick: () => {
-          this.ee.emit("removeTrack", this);
+          this.ee.emit(PlaylistEvents.REMOVE_TRACK, this);
         },
       },
       [h("i.fas.fa-times")]
@@ -633,7 +690,7 @@ export default class Track{
           title: isCollapsed ? "Expand track" : "Collapse track",
         },
         onclick: () => {
-          this.ee.emit("changeTrackView", this, {
+          this.ee.emit(PlaylistEvents.CHANGE_TRACK_VIEW, this, {
             collapsed: !isCollapsed,
           });
         },
@@ -664,7 +721,7 @@ export default class Track{
                   type: "button",
                 },
                 onclick: () => {
-                  this.ee.emit("mute", this);
+                  this.ee.emit(PlaylistEvents.MUTE, this);
                 },
               },
               ["Mute"]
@@ -673,7 +730,7 @@ export default class Track{
               `button.btn.btn-outline-dark.btn-xs.btn-solo${soloClass}`,
               {
                 onclick: () => {
-                  this.ee.emit("solo", this);
+                  this.ee.emit(PlaylistEvents.SOLO, this);
                 },
               },
               ["Solo"]
@@ -695,7 +752,7 @@ export default class Track{
               },
               hook: new VolumeSliderHook(this.gain),
               oninput: (e) => {
-                this.ee.emit("volumechange", e.target.value, this);
+                this.ee.emit(PlaylistEvents.VOLUME_CHANGE, e.target.value, this);
               },
             }),
           ])
@@ -715,7 +772,7 @@ export default class Track{
               },
               hook: new StereoPanSliderHook(this.stereoPan),
               oninput: (e) => {
-                this.ee.emit("stereopan", e.target.value / 100, this);
+                this.ee.emit(PlaylistEvents.STEREO_PAN, e.target.value / 100, this);
               },
             }),
           ])

@@ -15,7 +15,7 @@ import AnnotationList from "./annotation/AnnotationList";
 import ExportWavWorkerFunction from "./utils/exportWavWorker";
 import RecorderWorkerFunction from "./utils/recorderWorker";
 
-export default class {
+export default class Playlist {
   constructor() {
     this.tracks = [];
     this.soloedTracks = [];
@@ -196,406 +196,46 @@ export default class {
     return this.ee;
   }
 
-  setUpEventEmitter() {
-    const ee = this.ee;
 
-    ee.on("automaticscroll", (val) => {
-      this.isAutomaticScroll = val;
-    });
+  async loadAudioBuffer(src) {
+      const loader = LoaderFactory.createLoader(src, this.ac, this.ee);
+      const audioBuffer = await loader.load();
 
-    ee.on("durationformat", (format) => {
-      this.durationFormat = format;
-      this.drawRequest();
-    });
-
-    ee.on("select", (start, end, track) => {
-      if (this.isPlaying()) {
-        this.lastSeeked = start;
-        this.pausedAt = undefined;
-        this.restartPlayFrom(start);
-      } else {
-        // reset if it was paused.
-        this.seek(start, end, track);
-        this.ee.emit("timeupdate", start);
-        this.drawRequest();
-      }
-    });
-
-    ee.on("startaudiorendering", (type) => {
-      this.startOfflineRender(type);
-    });
-
-    ee.on("statechange", (state) => {
-      this.setState(state);
-      this.drawRequest();
-    });
-
-    ee.on("shift", (deltaTime, track) => {
-      track.setStartTime(track.getStartTime() + deltaTime);
-      this.adjustDuration();
-      this.drawRequest();
-    });
-
-    ee.on("record", () => {
-      this.record();
-    });
-
-    ee.on("play", (start, end) => {
-      this.play(start, end);
-    });
-
-    ee.on("pause", () => {
-      this.pause();
-    });
-
-    ee.on("stop", () => {
-      this.stop();
-    });
-
-    ee.on("rewind", () => {
-      this.rewind();
-    });
-
-    ee.on("fastforward", () => {
-      this.fastForward();
-    });
-
-    ee.on("clear", () => {
-      this.clear().then(() => {
-        this.drawRequest();
-      });
-    });
-
-    ee.on("solo", (track) => {
-      this.soloTrack(track);
-      this.adjustTrackPlayout();
-      this.drawRequest();
-    });
-
-    ee.on("mute", (track) => {
-      this.muteTrack(track);
-      this.adjustTrackPlayout();
-      this.drawRequest();
-    });
-
-    ee.on("removeTrack", (track) => {
-      this.removeTrack(track);
-      this.adjustTrackPlayout();
-      this.drawRequest();
-    });
-
-    ee.on("changeTrackView", (track, opts) => {
-      this.collapseTrack(track, opts);
-      this.drawRequest();
-    });
-
-    ee.on("volumechange", (volume, track) => {
-      track.setGainLevel(volume / 100);
-      this.drawRequest();
-    });
-
-    ee.on("mastervolumechange", (volume) => {
-      this.masterGain = volume / 100;
-      this.tracks.forEach((track) => {
-        track.setMasterGainLevel(this.masterGain);
-      });
-    });
-
-    ee.on("fadein", (duration, track) => {
-      track.setFadeIn(duration, this.fadeType);
-      this.drawRequest();
-    });
-
-    ee.on("fadeout", (duration, track) => {
-      track.setFadeOut(duration, this.fadeType);
-      this.drawRequest();
-    });
-
-    ee.on("stereopan", (panvalue, track) => {
-      track.setStereoPanValue(panvalue);
-      this.drawRequest();
-    });
-
-    ee.on("fadetype", (type) => {
-      this.fadeType = type;
-    });
-
-    ee.on("newtrack", (file) => {
-      this.load([
-        {
-          src: file,
-          name: file.name,
-        },
-      ]);
-    });
-
-    ee.on("cut", () => {
-      const track = this.getActiveTrack();
-      const timeSelection = this.getTimeSelection();
-
-      track.removePart(timeSelection.start, timeSelection.end, this.ac, track);
-      track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-
-      this.setTimeSelection(0, 0);
-      this.adjustDuration();
-      this.drawRequest();
-      this.ee.emit("cutfinished");
-    });
-
-    ee.on("razorCut", () => {
-      const Track = this.getActiveTrack();
-      const timeSelection = this.getTimeSelection();
-      Track.razorCut(timeSelection.start, this.ac, Track);
-    });
-
-    ee.on("trim", () => {
-      const track = this.getActiveTrack();
-      const timeSelection = this.getTimeSelection();
-
-      track.trim(timeSelection.start, timeSelection.end);
-      track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-
-      this.setTimeSelection(0, 0);
-      this.adjustDuration();
-      this.drawRequest();
-    });
-
-    ee.on("split", () => {
-      const track = this.getActiveTrack();
-      const timeSelection = this.getTimeSelection();
-      const timeSelectionStart = timeSelection.start;
-      this.createTrackFromSplit({
-        trackToSplit: track,
-        name: track.name + "_1",
-        splitTime: timeSelectionStart,
-      });
-      track.trim(track.startTime, timeSelectionStart);
-      if (track.fadeOut) {
-        track.removeFade(track.fadeOut);
-        track.fadeOut = undefined;
-      }
-
-      track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-
-      this.drawRequest();
-    });
-
-    ee.on("zoomin", () => {
-      const zoomIndex = Math.max(0, this.zoomIndex - 1);
-      const zoom = this.zoomLevels[zoomIndex];
-
-      if (zoom !== this.samplesPerPixel) {
-        this.setZoom(zoom);
-        this.drawRequest();
-      }
-    });
-
-    ee.on("zoomout", () => {
-      const zoomIndex = Math.min(
-        this.zoomLevels.length - 1,
-        this.zoomIndex + 1
-      );
-      const zoom = this.zoomLevels[zoomIndex];
-
-      if (zoom !== this.samplesPerPixel) {
-        this.setZoom(zoom);
-        this.drawRequest();
-      }
-    });
-
-    ee.on("scroll", () => {
-      this.isScrolling = true;
-      this.drawRequest();
-      clearTimeout(this.scrollTimer);
-      this.scrollTimer = setTimeout(() => {
-        this.isScrolling = false;
-      }, 200);
-    });
+      if (audioBuffer.sampleRate === this.sampleRate)
+        return audioBuffer;
+      else
+        return resampleAudioBuffer(audioBuffer, this.sampleRate);
   }
 
-  load(trackList) {
-    const loadPromises = trackList.map((trackInfo) => {
-      const loader = LoaderFactory.createLoader(
-        trackInfo.src,
-        this.ac,
-        this.ee
-      );
-      return loader.load().then((audioBuffer) => {
-        if (audioBuffer.sampleRate === this.sampleRate) {
-          return audioBuffer;
-        } else {
-          return resampleAudioBuffer(audioBuffer, this.sampleRate);
-        }
-      });
-    });
-
-    return Promise.all(loadPromises)
-      .then((audioBuffers) => {
-        this.ee.emit("audiosourcesloaded");
-
-        const tracks = audioBuffers.map((audioBuffer, index) => {
-          const info = trackList[index];
-          const name = info.name || "Untitled";
-          const start = info.start || 0;
-          const states = info.states || {};
-          const fadeIn = info.fadeIn;
-          const fadeOut = info.fadeOut;
-          const cueIn = info.cuein || 0;
-          const cueOut = info.cueout || audioBuffer.duration;
-          const gain = info.gain || 1;
-          const muted = info.muted || false;
-          const soloed = info.soloed || false;
-          const selection = info.selected;
-          const peaks = info.peaks || { type: "WebAudio", mono: this.mono };
-          const customClass = info.customClass || undefined;
-          const waveOutlineColor = info.waveOutlineColor || undefined;
-          const stereoPan = info.stereoPan || 0;
-          const effects = info.effects || null;
-
-          // webaudio specific playout for now.
-          const playout = new Playout(
-            this.ac,
-            audioBuffer,
-            this.masterGainNode
-          );
-
-          const track = new Track();
-          track.src = info.src;
-          track.setBuffer(audioBuffer);
-          track.setName(name);
-          track.setEventEmitter(this.ee);
-          track.setEnabledStates(states);
-          track.setCues(cueIn, cueOut);
-          track.setCustomClass(customClass);
-          track.setWaveOutlineColor(waveOutlineColor);
-
-          if (fadeIn !== undefined) {
-            track.setFadeIn(fadeIn.duration, fadeIn.shape);
-          }
-
-          if (fadeOut !== undefined) {
-            track.setFadeOut(fadeOut.duration, fadeOut.shape);
-          }
-
-          if (selection !== undefined) {
-            this.setActiveTrack(track);
-            this.setTimeSelection(selection.start, selection.end);
-          }
-
-          if (peaks !== undefined) {
-            track.setPeakData(peaks);
-          }
-
-          track.setState(this.getState());
-          track.setStartTime(start);
-          track.setPlayout(playout);
-
-          track.setGainLevel(gain);
-          track.setStereoPanValue(stereoPan);
-          if (effects) {
-            track.setEffects(effects);
-          }
-
-          if (muted) {
-            this.muteTrack(track);
-          }
-
-          if (soloed) {
-            this.soloTrack(track);
-          }
-
-          // extract peaks with AudioContext for now.
-          track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-
-          return track;
-        });
-
-        this.tracks = this.tracks.concat(tracks);
-        this.adjustDuration();
-        this.draw(this.render());
-
-        this.ee.emit("audiosourcesrendered");
-      })
-      .catch((e) => {
-        this.ee.emit("audiosourceserror", e);
-      });
-  }
-
-  createTrackFromSplit({ trackToSplit, name, splitTime }) {
-    const enabledStates = trackToSplit.enabledStates;
-    const buffer = trackToSplit.buffer;
-    const fadeOut = trackToSplit.fadeOut;
-    const cueIn = trackToSplit.cueIn;
-    const cueOut = trackToSplit.cueOut;
-    const gain = trackToSplit.gain || 1;
-
-    let muted = false;
-    if (this.mutedTracks.indexOf(trackToSplit) !== -1) {
-      muted = true;
-    }
-
-    let soloed = false;
-    if (this.soloedTracks.indexOf(trackToSplit) !== -1) {
-      soloed = true;
-    }
-
-    const peaks = trackToSplit.peakData;
-    const customClass = trackToSplit.customClass;
-    const waveOutlineColor = trackToSplit.waveOutlineColor;
-    const stereoPan = trackToSplit.stereoPan || 0;
-    const effects = trackToSplit.effectsGraph || null;
-
-    // webaudio specific playout for now.
-    const playout = new Playout(this.ac, buffer, this.masterGainNode);
-
+  createTrack(trackInfo, audioBuffer)
+  {
     const track = new Track();
-    track.src = trackToSplit.src;
-    track.setBuffer(buffer);
-    track.setName(name);
-    track.setEventEmitter(this.ee);
-    track.setEnabledStates(enabledStates);
-    track.setCues(cueIn, cueOut);
-    track.setCustomClass(customClass);
-    track.setWaveOutlineColor(waveOutlineColor);
-
-    if (fadeOut !== undefined) {
-      const fade = trackToSplit.fades[fadeOut];
-      track.setFadeOut(fade.end - fade.start, fade.shape);
+    track.initialize(trackInfo, audioBuffer, this.ac, this.masterGainNode, this.ee, this.getState(), this.samplesPerPixel, this.sampleRate);
+    const selection = trackInfo.selected;
+    if (selection !== undefined) {
+      this.setActiveTrack(track);
+      this.setTimeSelection(selection.start, selection.end);
     }
 
-    if (peaks !== undefined) {
-      track.setPeakData(peaks);
+    return track;
+  }
+
+  async loadTrackList(trackInfoList) {
+    const loadPromises = trackInfoList.map(trackInfo => this.loadAudioBuffer(trackInfo.src));
+    let audioBuffers = [];
+    try {
+      audioBuffers = await Promise.all(loadPromises)
     }
-
-    track.setState(this.getState());
-    track.setPlayout(playout);
-
-    track.setGainLevel(gain);
-    track.setStereoPanValue(stereoPan);
-    if (effects) {
-      track.setEffects(effects);
+    catch (e) {
+      this.ee.emit(PlaylistEvents.AUDIO_SOURCES_ERROR, e);
+      return;
     }
-
-    if (muted) {
-      this.muteTrack(track);
-    }
-
-    if (soloed) {
-      this.soloTrack(track);
-    }
-
-    track.setStartTime(trackToSplit.startTime);
-    track.trim(splitTime, track.endTime);
-
-    // extract peaks with AudioContext for now.
-    track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-
-    this.tracks = this.tracks.concat([track]);
+    this.ee.emit(PlaylistEvents.AUDIO_SOURCES_LOADED);
+    const tracks = audioBuffers.map((audioBuffer, index) => this.createTrack(trackInfoList[index], audioBuffer));
+    this.tracks = this.tracks.concat(tracks);
     this.adjustDuration();
     this.draw(this.render());
-    this.setActiveTrack(track);
-
-    this.ee.emit("audiosourcesrendered");
+    this.ee.emit(PlaylistEvents.AUDIO_SOURCES_RENDERED);
   }
 
   /*
@@ -666,7 +306,7 @@ export default class {
     await Promise.all(setUpChain);
     const audioBuffer = await this.offlineAudioContext.startRendering();
     if (["buffer", "mp3", "opus", "aac"].includes(type)) {
-      this.ee.emit("audiorenderingfinished", type, audioBuffer);
+      this.ee.emit(PlaylistEvents.AUDIO_RENDERING_FINISHED, type, audioBuffer);
       this.isRendering = false;
     } else if (type === "wav") {
       this.exportWorker.postMessage({
@@ -678,7 +318,7 @@ export default class {
 
       // callback for `exportWAV`
       this.exportWorker.onmessage = (e) => {
-        this.ee.emit("audiorenderingfinished", type, e.data);
+        this.ee.emit(PlaylistEvents.AUDIO_RENDERING_FINISHED, type, e.data);
         this.isRendering = false;
 
         // clear out the buffer for next renderings.
@@ -839,7 +479,7 @@ export default class {
   }
 
   setMasterGain(gain) {
-    this.ee.emit("mastervolumechange", gain);
+    this.ee.emit(PlaylistEvents.MASTER_VOLUME_CHANGE, gain);
   }
 
   restartPlayFrom(start, end) {
@@ -932,7 +572,7 @@ export default class {
   rewind() {
     return this.stop().then(() => {
       this.scrollLeft = 0;
-      this.ee.emit("select", 0, 0);
+      this.ee.emit(PlaylistEvents.SELECT, 0, 0);
     });
   }
 
@@ -944,7 +584,7 @@ export default class {
         this.scrollLeft = 0;
       }
 
-      this.ee.emit("select", this.duration, this.duration);
+      this.ee.emit(PlaylistEvents.SELECT, this.duration, this.duration);
     });
   }
 
@@ -1022,7 +662,7 @@ export default class {
 
     if (this.isPlaying()) {
       const playbackSeconds = cursorPos + elapsed;
-      this.ee.emit("timeupdate", playbackSeconds);
+      this.ee.emit(PlaylistEvents.TIME_UPDATE, playbackSeconds);
       this.animationRequest = window.requestAnimationFrame(() => {
         this.updateEditor(playbackSeconds);
       });
@@ -1035,7 +675,7 @@ export default class {
         cursorPos + elapsed >=
         (this.isSegmentSelection() ? selection.end : this.duration)
       ) {
-        this.ee.emit("finished");
+        this.ee.emit(PlaylistEvents.FINISHED_PLAYING);
       }
 
       this.stopAnimation();
@@ -1146,7 +786,7 @@ export default class {
             this.sampleRate
           );
 
-          this.ee.emit("scroll");
+          this.ee.emit(PlaylistEvents.SCROLL);
         },
         hook: new ScrollHook(this),
       },
@@ -1190,4 +830,282 @@ export default class {
       effects: this.effectsGraph,
     };
   }
+
+
+
+
+  setUpEventEmitter() {
+    const ee = this.ee;
+
+    ee.on(PlaylistEvents.SET_AUTOMATIC_SCROLL, (val) => {
+      this.isAutomaticScroll = val;
+    });
+
+    ee.on(PlaylistEvents.SET_DURATION_FORMAT, (format) => {
+      this.durationFormat = format;
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.SELECT, (start, end, track) => {
+      if (this.isPlaying()) {
+        this.lastSeeked = start;
+        this.pausedAt = undefined;
+        this.restartPlayFrom(start);
+      } else {
+        // reset if it was paused.
+        this.seek(start, end, track);
+        this.ee.emit(PlaylistEvents.TIME_UPDATE, start);
+        this.drawRequest();
+      }
+    });
+
+    ee.on(PlaylistEvents.START_AUDIO_RENDERING, (type) => {
+      this.startOfflineRender(type);
+    });
+
+    ee.on(PlaylistEvents.STATE_CHANGE, (state) => {
+      this.setState(state);
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.SHIFT, (deltaTime, track) => {
+      track.setStartTime(track.getStartTime() + deltaTime);
+      this.adjustDuration();
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.COMPLETE_SHIFT, (deltaTime, track) => {
+      track.setStartTime(track.getStartTime() + deltaTime);
+      this.adjustDuration();
+      this.drawRequest();
+
+      if (this.isPlaying())
+        this.restartPlayFrom(this.playbackSeconds);
+    });
+
+
+    ee.on(PlaylistEvents.RECORD, () => {
+      this.record();
+    });
+
+    ee.on(PlaylistEvents.PLAY, (start, end) => {
+      this.play(start, end);
+    });
+
+    ee.on(PlaylistEvents.PAUSE, () => {
+      this.pause();
+    });
+
+    ee.on(PlaylistEvents.STOP, () => {
+      this.stop();
+    });
+
+    ee.on(PlaylistEvents.REWIND, () => {
+      this.rewind();
+    });
+
+    ee.on(PlaylistEvents.FAST_FORWARD, () => {
+      this.fastForward();
+    });
+
+    ee.on(PlaylistEvents.CLEAR, () => {
+      this.clear().then(() => {
+        this.drawRequest();
+      });
+    });
+
+    ee.on(PlaylistEvents.SOLO, (track) => {
+      this.soloTrack(track);
+      this.adjustTrackPlayout();
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.MUTE, (track) => {
+      this.muteTrack(track);
+      this.adjustTrackPlayout();
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.REMOVE_TRACK, (track) => {
+      this.removeTrack(track);
+      this.adjustTrackPlayout();
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.CHANGE_TRACK_VIEW, (track, opts) => {
+      this.collapseTrack(track, opts);
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.VOLUME_CHANGE, (volume, track) => {
+      track.setGainLevel(volume / 100);
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.MASTER_VOLUME_CHANGE, (volume) => {
+      this.masterGain = volume / 100;
+      this.tracks.forEach((track) => {
+        track.setMasterGainLevel(this.masterGain);
+      });
+    });
+
+    ee.on(PlaylistEvents.FADE_IN, (duration, track) => {
+      track.setFadeIn(duration, this.fadeType);
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.FADE_OUT, (duration, track) => {
+      track.setFadeOut(duration, this.fadeType);
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.STEREO_PAN, (panvalue, track) => {
+      track.setStereoPanValue(panvalue);
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.FADE_TYPE, (type) => {
+      this.fadeType = type;
+    });
+
+    ee.on(PlaylistEvents.NEW_TRACK, (file) => {
+      this.loadTrackList([
+        {
+          src: file,
+          name: file.name,
+        },
+      ]);
+    });
+
+    ee.on(PlaylistEvents.CUT, () => {
+      const track = this.getActiveTrack();
+      const timeSelection = this.getTimeSelection();
+
+      track.removePart(timeSelection.start, timeSelection.end, this.ac, track);
+      track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+
+      this.setTimeSelection(0, 0);
+      this.adjustDuration();
+      this.drawRequest();
+      this.ee.emit(PlaylistEvents.CUT_FINISHED);
+    });
+
+    ee.on(PlaylistEvents.RAZOR_CUT, () => {
+      const Track = this.getActiveTrack();
+      const timeSelection = this.getTimeSelection();
+      Track.razorCut(timeSelection.start, this.ac, Track);
+    });
+
+    ee.on(PlaylistEvents.TRIM, () => {
+      const track = this.getActiveTrack();
+      const timeSelection = this.getTimeSelection();
+
+      track.trim(timeSelection.start, timeSelection.end);
+      track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+
+      this.setTimeSelection(0, 0);
+      this.adjustDuration();
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.SPLIT, () => {
+      const track = this.getActiveTrack();
+      const timeSelection = this.getTimeSelection();
+      const timeSelectionStart = timeSelection.start;
+      this.createTrackFromSplit({
+        trackToSplit: track,
+        name: track.name + "_1",
+        splitTime: timeSelectionStart,
+      });
+      track.trim(track.startTime, timeSelectionStart);
+      if (track.fadeOut) {
+        track.removeFade(track.fadeOut);
+        track.fadeOut = undefined;
+      }
+
+      track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+
+      this.drawRequest();
+    });
+
+    ee.on(PlaylistEvents.ZOOM_IN, () => {
+      const zoomIndex = Math.max(0, this.zoomIndex - 1);
+      const zoom = this.zoomLevels[zoomIndex];
+
+      if (zoom !== this.samplesPerPixel) {
+        this.setZoom(zoom);
+        this.drawRequest();
+      }
+    });
+
+    ee.on(PlaylistEvents.ZOOM_OUT, () => {
+      const zoomIndex = Math.min(
+        this.zoomLevels.length - 1,
+        this.zoomIndex + 1
+      );
+      const zoom = this.zoomLevels[zoomIndex];
+
+      if (zoom !== this.samplesPerPixel) {
+        this.setZoom(zoom);
+        this.drawRequest();
+      }
+    });
+
+    ee.on(PlaylistEvents.SCROLL, () => {
+      this.isScrolling = true;
+      this.drawRequest();
+      clearTimeout(this.scrollTimer);
+      this.scrollTimer = setTimeout(() => {
+        this.isScrolling = false;
+      }, 200);
+    });
+  }
+
+}
+
+export const PlaylistEvents = {
+  SET_AUTOMATIC_SCROLL: "automaticscroll",
+  SET_DURATION_FORMAT: "durationformat",
+  SELECT: "select",
+  TIME_UPDATE: "timeupdate",
+  START_AUDIO_RENDERING: "startaudiorendering",
+  STATE_CHANGE: "statechange",
+  SHIFT: "shift",
+  COMPLETE_SHIFT: "completeshift",
+  RECORD: "record",
+  PLAY: "play",
+  PAUSE: "pause",
+  STOP: "stop",
+  REWIND: "rewind",
+  FAST_FORWARD: "fastforward",
+  CLEAR: "clear",
+  SOLO: "solo",
+  MUTE: "mute",
+  REMOVE_TRACK: "removeTrack",
+  CHANGE_TRACK_VIEW: "changeTrackView",
+  VOLUME_CHANGE: "volumechange",
+  MASTER_VOLUME_CHANGE: "mastervolumechange",
+  FADE_IN: "fadein",
+  FADE_OUT: "fadeout",
+  STEREO_PAN: "stereopan",
+  FADE_TYPE: "fadetype",
+  NEW_TRACK: "newtrack",
+  CUT: "cut",
+  RAZOR_CUT: "razorCut",
+  TRIM: "trim",
+  SPLIT: "split",
+  ZOOM_IN: "zoomin",
+  ZOOM_OUT: "zoomout",
+  SCROLL: "scroll",
+  AUDIO_SOURCES_ERROR: "audiosourceserror",
+  AUDIO_SOURCES_LOADED: "audiosourcesloaded",
+  AUDIO_SOURCES_RENDERED: "audiosourcesrendered",
+  AUDIO_RENDERING_FINISHED: "audiorenderingfinished",
+  FINISHED_PLAYING: "finished",
+  CUT_FINISHED: "cutfinished",
+  RAZOR_CUT_FINISHED: "razorCutFinished",
+  SAVE_CUT_MANIPULATION: "saveCutManipulation",
+  AUDIO_REQUEST_STATE_CHANGE: "audiorequeststatechange",
+  LOAD_PROGRESS: "loadprogress",
+  SET_DURATION_FORMAT: "durationformat",
 }

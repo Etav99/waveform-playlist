@@ -11,11 +11,13 @@ export default class {
   }
 
   click(e) {
+    if(this.track.isFrozen) return;
+
     const startX = e.offsetX;
     const time = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
 
     if (time > this.track.getStartTime() && time < this.track.getEndTime()) {
-      this.track.ee.emit("fadeout", this.track.getEndTime() - time, this.track);
+      this.track.ee.emit(PlaylistEvents.FADE_OUT, this.track.getEndTime() - time, this.track);
     }
   }
 

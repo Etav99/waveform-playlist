@@ -12,7 +12,7 @@ export default class {
     this.sampleRate = sampleRate;
   }
 
-  emitShift(x) {
+  emitShift(x, complete = false) {
     const deltaX = x - this.prevX;
     const deltaTime = pixelsToSeconds(
       deltaX,
@@ -20,17 +20,25 @@ export default class {
       this.sampleRate
     );
     this.prevX = x;
-    this.track.ee.emit("shift", deltaTime, this.track);
+    if(complete)
+    {
+      this.track.ee.emit(PlaylistEvents.COMPLETE_SHIFT, deltaTime, this.track);
+    }
+    else
+    {
+      this.track.ee.emit(PlaylistEvents.SHIFT, deltaTime, this.track);
+    }
   }
 
   complete(x) {
-    this.emitShift(x);
+    this.emitShift(x, true);
     this.active = false;
+
   }
 
   mousedown(e) {
     e.preventDefault();
-
+    if(this.track.isFrozen) return;
     this.active = true;
     this.el = e.target;
     this.prevX = e.offsetX;
@@ -38,6 +46,7 @@ export default class {
 
   touchstart(e) {
     e.preventDefault();
+    if(this.track.isFrozen) return;
     const offsetX = getXOffsetOnTouchEvent(e);
     if (offsetX) {
       this.active = true;
@@ -49,6 +58,7 @@ export default class {
   mousemove(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       this.emitShift(e.offsetX);
     }
   }
@@ -56,6 +66,7 @@ export default class {
   touchmove(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       const offsetX = getXOffsetOnTouchEvent(e);
       if (offsetX) this.emitShift(offsetX);
     }
@@ -64,6 +75,7 @@ export default class {
   mouseup(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       this.complete(e.offsetX);
     }
   }
@@ -71,6 +83,7 @@ export default class {
   mouseleave(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       this.complete(e.offsetX);
     }
   }
@@ -78,6 +91,7 @@ export default class {
   touchend(e) {
     if (this.active) {
       e.preventDefault();
+      if(this.track.isFrozen) return;
       const offsetX = getXOffsetOnTouchEvent(e);
       if (offsetX) this.complete(offsetX);
     }
