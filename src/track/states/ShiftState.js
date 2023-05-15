@@ -1,5 +1,6 @@
 import { pixelsToSeconds } from "../../utils/conversions";
 import { getXOffsetOnTouchEvent } from "../../utils/mobiles";
+import PlaylistEvents from "../../PlaylistEvents";
 
 export default class {
   constructor(track) {

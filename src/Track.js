@@ -17,6 +17,11 @@ import FadeCanvasHook from "./render/FadeCanvasHook";
 import VolumeSliderHook from "./render/VolumeSliderHook";
 import StereoPanSliderHook from "./render/StereoPanSliderHook";
 
+import LoaderFactory from "./track/loader/LoaderFactory";
+import { resampleAudioBuffer } from "./utils/audioData";
+
+import PlaylistEvents from "./PlaylistEvents";
+
 const MAX_CANVAS_WIDTH = 1000;
 
 export default class Track{
@@ -43,10 +48,21 @@ export default class Track{
     this.startTime = 0;
     this.endTime = 0;
     this.stereoPan = 0;
+    this.buffer = null;
   }
 
-  initialize(trackInfo, audioBuffer, audioContext, masterGainNode, eventEmitter, state, samplesPerPixel, sampleRate)
-  {
+  async initializeAsync(trackInfo, audioContext, masterGainNode, eventEmitter, state, samplesPerPixel, sampleRate) {
+    let audioBuffer = this.buffer;
+    if(trackInfo.src != this.src && trackInfo.src != undefined && trackInfo.src != null) {
+      try {
+        audioBuffer = await this.loadAudioBuffer(trackInfo.src, audioContext, sampleRate);
+      }
+      catch (e) {
+        eventEmitter.emit(PlaylistEvents.AUDIO_SOURCES_ERROR, e);
+        return;
+      }
+    }
+
     const info = trackInfo;
     const name = info.name || "Untitled";
     const start = info.start || 0;
@@ -54,7 +70,7 @@ export default class Track{
     const fadeIn = info.fadeIn;
     const fadeOut = info.fadeOut;
     const cueIn = info.cuein || 0;
-    const cueOut = info.cueout || audioBuffer.duration;
+    const cueOut = info.cueout || audioBuffer?.duration || 0;
     const gain = info.gain || 1;
     const muted = info.muted || false;
     const soloed = info.soloed || false;
@@ -93,9 +109,21 @@ export default class Track{
     if (soloed)
       this.soloTrack(track);
     // extract peaks with AudioContext for now.
-    this.calculatePeaks(samplesPerPixel, sampleRate);
-
+    if(audioBuffer != null)
+      this.calculatePeaks(samplesPerPixel, sampleRate);
+    else
+      this.peaks = {length: 0, data: [new Int8Array(0)], bits: 8};
   }
+
+  async loadAudioBuffer(src, audioContext, sampleRate) {
+    const loader = LoaderFactory.createLoader(src, audioContext, this.ee);
+    const audioBuffer = await loader.load();
+
+    if (audioBuffer.sampleRate === sampleRate)
+      return audioBuffer;
+    else
+      return resampleAudioBuffer(audioBuffer, sampleRate);
+}
 
   setEventEmitter(ee) {
     this.ee = ee;

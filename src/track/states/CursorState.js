@@ -1,4 +1,5 @@
 import { pixelsToSeconds } from "../../utils/conversions";
+import PlaylistEvents from "../../PlaylistEvents";
 
 export default class CursorState {
   constructor(track) {

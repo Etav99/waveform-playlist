@@ -5,12 +5,12 @@ import patch from "virtual-dom/patch";
 import InlineWorker from "inline-worker";
 
 import { pixelsToSeconds } from "./utils/conversions";
-import { resampleAudioBuffer } from "./utils/audioData";
-import LoaderFactory from "./track/loader/LoaderFactory";
+
 import ScrollHook from "./render/ScrollHook";
 import TimeScale from "./TimeScale";
 import Track from "./Track";
 import Playout from "./Playout";
+import PlaylistEvents from "./PlaylistEvents";
 import AnnotationList from "./annotation/AnnotationList";
 import ExportWavWorkerFunction from "./utils/exportWavWorker";
 import RecorderWorkerFunction from "./utils/recorderWorker";
@@ -196,45 +196,31 @@ export default class Playlist {
     return this.ee;
   }
 
-
-  async loadAudioBuffer(src) {
-      const loader = LoaderFactory.createLoader(src, this.ac, this.ee);
-      const audioBuffer = await loader.load();
-
-      if (audioBuffer.sampleRate === this.sampleRate)
-        return audioBuffer;
-      else
-        return resampleAudioBuffer(audioBuffer, this.sampleRate);
-  }
-
-  createTrack(trackInfo, audioBuffer)
+  async createOrUpdateTrack(name, trackInfo)
   {
-    const track = new Track();
-    track.initialize(trackInfo, audioBuffer, this.ac, this.masterGainNode, this.ee, this.getState(), this.samplesPerPixel, this.sampleRate);
+    let track = this.tracks.find(track => track.name == name);
+    if (track === undefined || track === null)
+    {
+      track = new Track();
+      trackInfo = { name: name };
+      this.tracks.push(track);
+    }
+    await track.initializeAsync(trackInfo, this.ac, this.masterGainNode, this.ee, this.getState(), this.samplesPerPixel, this.sampleRate);
     const selection = trackInfo.selected;
     if (selection !== undefined) {
       this.setActiveTrack(track);
       this.setTimeSelection(selection.start, selection.end);
     }
-
-    return track;
+    this.adjustDuration();
+    this.draw(this.render());
   }
 
   async loadTrackList(trackInfoList) {
-    const loadPromises = trackInfoList.map(trackInfo => this.loadAudioBuffer(trackInfo.src));
-    let audioBuffers = [];
-    try {
-      audioBuffers = await Promise.all(loadPromises)
+
+    for(const trackInfo of trackInfoList)
+    {
+      await this.createOrUpdateTrack(trackInfo.name, trackInfo);
     }
-    catch (e) {
-      this.ee.emit(PlaylistEvents.AUDIO_SOURCES_ERROR, e);
-      return;
-    }
-    this.ee.emit(PlaylistEvents.AUDIO_SOURCES_LOADED);
-    const tracks = audioBuffers.map((audioBuffer, index) => this.createTrack(trackInfoList[index], audioBuffer));
-    this.tracks = this.tracks.concat(tracks);
-    this.adjustDuration();
-    this.draw(this.render());
     this.ee.emit(PlaylistEvents.AUDIO_SOURCES_RENDERED);
   }
 
@@ -519,7 +505,8 @@ export default class Playlist {
 
 
     for(const track of this.tracks) {
-      track.setState("cursor");
+      if(this.state !== "shift")
+        track.setState("cursor");
       let scheduledPlayPromise = track.schedulePlay(currentTime, start, end, {
         shouldPlay: this.shouldTrackPlay(track),
         masterGain: this.masterGain,
@@ -777,7 +764,7 @@ export default class Playlist {
       "div.playlist-tracks",
       {
         attributes: {
-          style: "overflow: auto;",
+          style: "overflow: scroll;",
         },
         onscroll: (e) => {
           this.scrollLeft = pixelsToSeconds(
@@ -831,8 +818,9 @@ export default class Playlist {
     };
   }
 
-
-
+  getTrackByName(name) {
+    return this.tracks.find((track) => track.name === name);
+  }
 
   setUpEventEmitter() {
     const ee = this.ee;
@@ -1061,51 +1049,4 @@ export default class Playlist {
     });
   }
 
-}
-
-export const PlaylistEvents = {
-  SET_AUTOMATIC_SCROLL: "automaticscroll",
-  SET_DURATION_FORMAT: "durationformat",
-  SELECT: "select",
-  TIME_UPDATE: "timeupdate",
-  START_AUDIO_RENDERING: "startaudiorendering",
-  STATE_CHANGE: "statechange",
-  SHIFT: "shift",
-  COMPLETE_SHIFT: "completeshift",
-  RECORD: "record",
-  PLAY: "play",
-  PAUSE: "pause",
-  STOP: "stop",
-  REWIND: "rewind",
-  FAST_FORWARD: "fastforward",
-  CLEAR: "clear",
-  SOLO: "solo",
-  MUTE: "mute",
-  REMOVE_TRACK: "removeTrack",
-  CHANGE_TRACK_VIEW: "changeTrackView",
-  VOLUME_CHANGE: "volumechange",
-  MASTER_VOLUME_CHANGE: "mastervolumechange",
-  FADE_IN: "fadein",
-  FADE_OUT: "fadeout",
-  STEREO_PAN: "stereopan",
-  FADE_TYPE: "fadetype",
-  NEW_TRACK: "newtrack",
-  CUT: "cut",
-  RAZOR_CUT: "razorCut",
-  TRIM: "trim",
-  SPLIT: "split",
-  ZOOM_IN: "zoomin",
-  ZOOM_OUT: "zoomout",
-  SCROLL: "scroll",
-  AUDIO_SOURCES_ERROR: "audiosourceserror",
-  AUDIO_SOURCES_LOADED: "audiosourcesloaded",
-  AUDIO_SOURCES_RENDERED: "audiosourcesrendered",
-  AUDIO_RENDERING_FINISHED: "audiorenderingfinished",
-  FINISHED_PLAYING: "finished",
-  CUT_FINISHED: "cutfinished",
-  RAZOR_CUT_FINISHED: "razorCutFinished",
-  SAVE_CUT_MANIPULATION: "saveCutManipulation",
-  AUDIO_REQUEST_STATE_CHANGE: "audiorequeststatechange",
-  LOAD_PROGRESS: "loadprogress",
-  SET_DURATION_FORMAT: "durationformat",
 }

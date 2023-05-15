@@ -1,5 +1,6 @@
 import { pixelsToSeconds } from "../../utils/conversions";
 import { getXOffsetOnTouchEvent } from "../../utils/mobiles";
+import PlaylistEvents from "../../PlaylistEvents";
 
 export default class {
   constructor(track) {
@@ -12,7 +13,7 @@ export default class {
     this.sampleRate = sampleRate;
   }
 
-  emitSelection(x) {
+  emitSelection(x, complete = false) {
     const minX = Math.min(x, this.startX);
     const maxX = Math.max(x, this.startX);
     const startTime = pixelsToSeconds(
