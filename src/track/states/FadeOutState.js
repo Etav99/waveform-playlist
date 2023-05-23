@@ -12,7 +12,7 @@ export default class {
   }
 
   click(e) {
-    if(this.track.isFrozen) return;
+    if(this.track.isLocked()) return;
 
     const startX = e.offsetX;
     const time = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);

@@ -33,7 +33,7 @@ export default class Track{
     this.customClass = undefined;
     this.waveOutlineColor = undefined;
     this.customControls = null;
-    this.isFrozen = false;
+    this.locked = false;
 
     this.gain = 1;
     this.fades = {};
@@ -51,9 +51,9 @@ export default class Track{
     this.buffer = null;
   }
 
-  async initializeAsync(trackInfo, audioContext, masterGainNode, eventEmitter, state, samplesPerPixel, sampleRate) {
+  async initializeAsync(trackInfo, audioContext, masterGainNode, eventEmitter, state, samplesPerPixel, sampleRate, loadAudioBuffer = true) {
     let audioBuffer = this.buffer;
-    if(trackInfo.src != this.src && trackInfo.src != undefined && trackInfo.src != null) {
+    if(loadAudioBuffer && trackInfo.src != this.src && trackInfo.src != undefined && trackInfo.src != null) {
       try {
         audioBuffer = await this.loadAudioBuffer(trackInfo.src, audioContext, sampleRate);
       }
@@ -83,6 +83,7 @@ export default class Track{
     // webaudio specific playout for now.
     const playout = new Playout(audioContext, audioBuffer, masterGainNode);
 
+    this.locked = info.locked || false;
     this.src = info.src;
     this.setBuffer(audioBuffer);
     this.setName(name);
@@ -390,6 +391,10 @@ export default class Track{
       // console.log("duration: "+this.duration);
 
     }
+  }
+
+  isLocked() {
+    return this.locked;
   }
 
   setStartTime(start) {

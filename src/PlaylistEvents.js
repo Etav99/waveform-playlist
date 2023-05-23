@@ -8,6 +8,7 @@
     STATE_CHANGE: "statechange",
     SHIFT: "shift",
     COMPLETE_SHIFT: "completeshift",
+    TRACK_START_TIME_UPDATE: "tracktimeupdate",
     RECORD: "record",
     PLAY: "play",
     PAUSE: "pause",

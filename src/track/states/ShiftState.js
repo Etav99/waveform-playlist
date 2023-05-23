@@ -39,7 +39,7 @@ export default class {
 
   mousedown(e) {
     e.preventDefault();
-    if(this.track.isFrozen) return;
+    if(this.track.isLocked()) return;
     this.active = true;
     this.el = e.target;
     this.prevX = e.offsetX;
@@ -47,7 +47,7 @@ export default class {
 
   touchstart(e) {
     e.preventDefault();
-    if(this.track.isFrozen) return;
+    if(this.track.isLocked()) return;
     const offsetX = getXOffsetOnTouchEvent(e);
     if (offsetX) {
       this.active = true;
@@ -59,7 +59,7 @@ export default class {
   mousemove(e) {
     if (this.active) {
       e.preventDefault();
-      if(this.track.isFrozen) return;
+      if(this.track.isLocked()) return;
       this.emitShift(e.offsetX);
     }
   }
@@ -67,7 +67,7 @@ export default class {
   touchmove(e) {
     if (this.active) {
       e.preventDefault();
-      if(this.track.isFrozen) return;
+      if(this.track.isLocked()) return;
       const offsetX = getXOffsetOnTouchEvent(e);
       if (offsetX) this.emitShift(offsetX);
     }
@@ -76,7 +76,7 @@ export default class {
   mouseup(e) {
     if (this.active) {
       e.preventDefault();
-      if(this.track.isFrozen) return;
+      if(this.track.isLocked()) return;
       this.complete(e.offsetX);
     }
   }
@@ -84,7 +84,7 @@ export default class {
   mouseleave(e) {
     if (this.active) {
       e.preventDefault();
-      if(this.track.isFrozen) return;
+      if(this.track.isLocked()) return;
       this.complete(e.offsetX);
     }
   }
@@ -92,7 +92,7 @@ export default class {
   touchend(e) {
     if (this.active) {
       e.preventDefault();
-      if(this.track.isFrozen) return;
+      if(this.track.isLocked()) return;
       const offsetX = getXOffsetOnTouchEvent(e);
       if (offsetX) this.complete(offsetX);
     }

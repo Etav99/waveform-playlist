@@ -13,7 +13,7 @@ export default class CursorState {
 
   click(e) {
     e.preventDefault();
-    if(this.track.isFrozen)
+    if(this.track.isLocked())
       return;
 
     const startX = e.offsetX;

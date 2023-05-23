@@ -196,13 +196,59 @@ export default class Playlist {
     return this.ee;
   }
 
+  reRender()
+  {
+    this.draw(this.render());
+  }
+
+  reorderTracks(trackNamesOrder) {
+
+    let trackNameIndexMap = new Map();
+    for(let i = 0; i < trackNamesOrder.length; i++) {
+        trackNameIndexMap.set(trackNamesOrder[i], i);
+    }
+
+    this.tracks.sort((a, b) => {
+      return trackNameIndexMap.get(a.name) - trackNameIndexMap.get(b.name);
+    });
+
+  }
+
+  async addTrack(trackInfo)
+  {
+    let track = this.tracks.find(track => track.name == trackInfo.name);
+    if (track != undefined) throw new Error("Track already exists");
+
+    track = new Track();
+    this.tracks.push(track);
+    await track.initializeAsync(trackInfo, this.ac, this.masterGainNode, this.ee, this.getState(), this.samplesPerPixel, this.sampleRate);
+    this.adjustDuration();
+  } 
+
+  async updateTrack(trackInfo, sourceChanged)
+  {
+    let track = this.tracks.find(track => track.name == trackInfo.name);
+    if (track === undefined) throw new Error("Track does not exist");
+
+    await track.initializeAsync(trackInfo, this.ac, this.masterGainNode, this.ee, this.getState(), this.samplesPerPixel, this.sampleRate, sourceChanged);
+
+    const selection = trackInfo.selected;
+    if (selection !== undefined) {
+      this.setActiveTrack(track);
+      this.setTimeSelection(selection.start, selection.end);
+    }
+
+    this.adjustDuration();
+  }
+
+
   async createOrUpdateTrack(name, trackInfo)
   {
     let track = this.tracks.find(track => track.name == name);
     if (track === undefined || track === null)
     {
       track = new Track();
-      trackInfo = { name: name };
+      if(trackInfo === undefined) trackInfo = { name: name };
       this.tracks.push(track);
     }
     await track.initializeAsync(trackInfo, this.ac, this.masterGainNode, this.ee, this.getState(), this.samplesPerPixel, this.sampleRate);
@@ -216,12 +262,29 @@ export default class Playlist {
   }
 
   async loadTrackList(trackInfoList) {
-
     for(const trackInfo of trackInfoList)
     {
-      await this.createOrUpdateTrack(trackInfo.name, trackInfo);
+      await this.addTrack(trackInfo);
     }
+    this.reRender();
     this.ee.emit(PlaylistEvents.AUDIO_SOURCES_RENDERED);
+  }
+
+  removeTrackByName(name) {
+    const track = this.tracks.find(track => track.name == name);
+    if (track === undefined) throw new Error("Track does not exist");
+    this.removeTrack(track);
+  }
+
+  setTrackVolumeByName(name, volume) {
+    const track = this.tracks.find(track => track.name == name);
+    if (track === undefined) throw new Error("Track does not exist");
+    track.setGainLevel(volume);
+    this.drawRequest();
+  }
+
+  async clearTrackList(){
+    await this.clear();
   }
 
   /*
@@ -869,6 +932,8 @@ export default class Playlist {
 
       if (this.isPlaying())
         this.restartPlayFrom(this.playbackSeconds);
+
+      this.ee.emit(PlaylistEvents.TRACK_START_TIME_UPDATE, track.name, track.getStartTime());
     });
 
 
