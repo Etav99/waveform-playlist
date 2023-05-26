@@ -53,7 +53,7 @@ export default class Track{
 
   async initializeAsync(trackInfo, audioContext, masterGainNode, eventEmitter, state, samplesPerPixel, sampleRate, loadAudioBuffer = true) {
     let audioBuffer = this.buffer;
-    if(loadAudioBuffer && trackInfo.src != this.src && trackInfo.src != undefined && trackInfo.src != null) {
+    if(loadAudioBuffer && trackInfo.src) {
       try {
         audioBuffer = await this.loadAudioBuffer(trackInfo.src, audioContext, sampleRate);
       }
@@ -110,10 +110,7 @@ export default class Track{
     if (soloed)
       this.soloTrack(track);
     // extract peaks with AudioContext for now.
-    if(audioBuffer != null)
-      this.calculatePeaks(samplesPerPixel, sampleRate);
-    else
-      this.peaks = {length: 0, data: [new Int8Array(0)], bits: 8};
+    this.calculatePeaks(samplesPerPixel, sampleRate);
   }
 
   async loadAudioBuffer(src, audioContext, sampleRate) {
@@ -486,18 +483,15 @@ export default class Track{
   }
 
   calculatePeaks(samplesPerPixel, sampleRate) {
+    if(this.buffer == null || this.buffer == undefined)
+    {
+      this.setPeaks({length: 0, data: [new Int8Array(0)], bits: 8});
+      return;
+    }
+
     const cueIn = secondsToSamples(this.cueIn, sampleRate);
     const cueOut = secondsToSamples(this.cueOut, sampleRate);
-
-    this.setPeaks(
-      extractPeaks(
-        this.buffer,
-        samplesPerPixel,
-        this.peakData.mono,
-        cueIn,
-        cueOut
-      )
-    );
+    this.setPeaks(extractPeaks(this.buffer, samplesPerPixel, this.peakData.mono, cueIn, cueOut));
   }
 
   setPeaks(peaks) {
