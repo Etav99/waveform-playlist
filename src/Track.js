@@ -28,7 +28,8 @@ export default class Track{
 
   static playDelay = 0.1;
 
-  constructor() {
+  constructor(id) {
+    this.id = id;
     this.name = "Untitled";
     this.customClass = undefined;
     this.waveOutlineColor = undefined;
