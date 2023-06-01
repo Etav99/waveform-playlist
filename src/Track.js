@@ -50,13 +50,16 @@ export default class Track{
     this.endTime = 0;
     this.stereoPan = 0;
     this.buffer = null;
+
+    this.setPeaks({length: 0, data: [new Int8Array(0)], bits: 8});
+
+    this.playout = null;
   }
 
   async initializeAsync(trackInfo, audioContext, masterGainNode, eventEmitter, state, samplesPerPixel, sampleRate, loadAudioBuffer = true) {
-    let audioBuffer = this.buffer;
     if(loadAudioBuffer && trackInfo.src) {
       try {
-        audioBuffer = await this.loadAudioBuffer(trackInfo.src, audioContext, sampleRate);
+        await this.loadAudioSource(trackInfo.src, audioContext, masterGainNode, samplesPerPixel, sampleRate);
       }
       catch (e) {
         eventEmitter.emit(PlaylistEvents.AUDIO_SOURCES_ERROR, e);
@@ -71,7 +74,7 @@ export default class Track{
     const fadeIn = info.fadeIn;
     const fadeOut = info.fadeOut;
     const cueIn = info.cuein || 0;
-    const cueOut = info.cueout || audioBuffer?.duration || 0;
+    const cueOut = info.cueout || this.buffer?.duration || 0;
     const gain = info.gain || 1;
     const muted = info.muted || false;
     const soloed = info.soloed || false;
@@ -81,12 +84,12 @@ export default class Track{
     const stereoPan = info.stereoPan || 0;
     const effects = info.effects || null;
 
-    // webaudio specific playout for now.
-    const playout = new Playout(audioContext, audioBuffer, masterGainNode);
+
+    if(!this.playout)
+      this.setPlayout(new Playout(audioContext, null, masterGainNode));
 
     this.locked = info.locked || false;
     this.src = info.src;
-    this.setBuffer(audioBuffer);
     this.setName(name);
     this.setEventEmitter(eventEmitter);
     this.setEnabledStates(states);
@@ -101,7 +104,6 @@ export default class Track{
       this.setPeakData(peaks);
     this.setState(state);
     this.setStartTime(start);
-    this.setPlayout(playout);
     this.setGainLevel(gain);
     this.setStereoPanValue(stereoPan);
     if (effects)
@@ -110,8 +112,27 @@ export default class Track{
       this.muteTrack(track);
     if (soloed)
       this.soloTrack(track);
-    // extract peaks with AudioContext for now.
+
+      this.calculatePeaks(samplesPerPixel, sampleRate);
+  }
+
+  async recordingUpdate(src, audioContext, masterGainNode, samplesPerPixel, sampleRate) {
+    if (src)
+      await this.loadAudioSource(src, audioContext, masterGainNode, samplesPerPixel, sampleRate);
+    else
+      this.buffer = null;
+    this.setCues(0, this.buffer?.duration || 0);
     this.calculatePeaks(samplesPerPixel, sampleRate);
+  }
+
+  async loadAudioSource(src, audioContext, masterGainNode, samplesPerPixel, sampleRate) {
+    const audioBuffer = await this.loadAudioBuffer(src, audioContext, sampleRate);
+    if(this.playout && this.playout.isPlaying()) {
+      this.playout.stop();
+      this.playout = null;
+    }
+    this.setPlayout(new Playout(audioContext, audioBuffer, masterGainNode));
+    this.setBuffer(audioBuffer);
   }
 
   async loadAudioBuffer(src, audioContext, sampleRate) {
@@ -122,7 +143,31 @@ export default class Track{
       return audioBuffer;
     else
       return resampleAudioBuffer(audioBuffer, sampleRate);
-}
+  }
+
+  onRecordingStart(audioContext, stream) {
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.smoothingTimeConstant = 0.5;
+    analyser.fftSize = 32;
+    source.connect(analyser);
+
+    this.isRecording = true;
+    this.analyser = analyser;
+    this.analyserBuffer = new Uint8Array(analyser.fftSize);
+  }
+
+  onRecordingComplete() {
+    this.isRecording = false;
+    this.analyser = null;
+    this.analyserBuffer = null;
+  }
+
+  updatePeaksFromAnalyser() {
+    this.analyser.getByteFrequencyData(this.analyserBuffer);
+    this.setPeaks({length: this.analyser.fftSize, data: [this.analyserBuffer], bits: 8});
+  }
+
 
   setEventEmitter(ee) {
     this.ee = ee;

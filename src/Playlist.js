@@ -11,9 +11,11 @@ import TimeScale from "./TimeScale";
 import Track from "./Track";
 import Playout from "./Playout";
 import PlaylistEvents from "./PlaylistEvents";
+import LoaderFactory from "./track/loader/LoaderFactory";
 import AnnotationList from "./annotation/AnnotationList";
 import ExportWavWorkerFunction from "./utils/exportWavWorker";
 import RecorderWorkerFunction from "./utils/recorderWorker";
+
 import { get } from "jquery";
 
 export default class Playlist {
@@ -41,76 +43,13 @@ export default class Playlist {
     this.durationFormat = "hh:mm:ss.uuu";
     this.isAutomaticScroll = false;
     this.resetDrawTimer = undefined;
+
+    this.peaksWorkletLoaded = false;
   }
 
   // TODO extract into a plugin
   initExporter() {
     this.exportWorker = new InlineWorker(ExportWavWorkerFunction);
-  }
-
-  // TODO extract into a plugin
-  initRecorder(stream) {
-    this.mediaRecorder = new MediaRecorder(stream);
-
-    this.mediaRecorder.onstart = () => {
-      const start = this.cursor;
-      const track = new Track();
-      track.setName("Recording");
-      track.setEnabledStates();
-      track.setEventEmitter(this.ee);
-      track.setStartTime(start);
-
-      this.recordingTrack = track;
-      this.tracks.push(track);
-
-      this.chunks = [];
-      this.working = false;
-    };
-
-    this.mediaRecorder.ondataavailable = (e) => {
-      this.chunks.push(e.data);
-
-      // throttle peaks calculation
-      if (!this.working) {
-        const recording = new Blob(this.chunks, {
-          type: "audio/ogg; codecs=opus",
-        });
-        const loader = LoaderFactory.createLoader(recording, this.ac);
-        loader
-          .load()
-          .then((audioBuffer) => {
-            // ask web worker for peaks.
-            this.recorderWorker.postMessage({
-              samples: audioBuffer.getChannelData(0),
-              samplesPerPixel: this.samplesPerPixel,
-            });
-            this.recordingTrack.setCues(0, audioBuffer.duration);
-            this.recordingTrack.setBuffer(audioBuffer);
-            this.recordingTrack.setPlayout(
-              new Playout(this.ac, audioBuffer, this.masterGainNode)
-            );
-            this.adjustDuration();
-          })
-          .catch(() => {
-            this.working = false;
-          });
-        this.working = true;
-      }
-    };
-
-    this.mediaRecorder.onstop = () => {
-      this.chunks = [];
-      this.working = false;
-      this.cursor = this.duration + 0.3;
-    };
-
-    this.recorderWorker = new InlineWorker(RecorderWorkerFunction);
-    // use a worker for calculating recording peaks.
-    this.recorderWorker.onmessage = (e) => {
-      this.recordingTrack.setPeaks(e.data);
-      this.working = false;
-      this.drawRequest();
-    };
   }
 
   setShowTimeScale(show) {
@@ -215,6 +154,8 @@ export default class Playlist {
       return trackIdIndexMap.get(a.id) - trackIdIndexMap.get(b.id);
     });
 
+    if (this.isPlaying())
+      this.restartPlayFrom(this.playbackSeconds);
   }
 
   async addTrack(trackInfo)
@@ -282,6 +223,119 @@ export default class Playlist {
   async clearTrackList(){
     await this.clear();
   }
+
+
+  async getMicrophoneStream() {
+    try {
+      // disable noise suppression and echo cancellation
+      let microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false, noiseSuppression: false, echoCancellation: false })
+      return microphoneStream;
+    }
+    catch (err) {
+      console.log(err);
+      return null;
+    }
+  }
+
+
+  async startRecordingTrackById(trackId) {
+    const track = this.getTrackById(trackId);
+    if (track === undefined) throw new Error("Track does not exist");
+    await this.record(track);
+  }
+
+  async record(track) {
+    await this.initRecorder(track);
+
+    const playoutPromises = [];
+    const start = this.cursor;
+    this.mediaRecorder.start(300);
+
+    this.tracks.forEach((track) => {
+      track.setState("none");
+      playoutPromises.push(
+        track.schedulePlay(this.ac.currentTime, start, undefined, {
+          shouldPlay: this.shouldTrackPlay(track),
+        })
+      );
+    });
+
+    this.playoutPromises = playoutPromises;
+    setTimeout(this.startAnimation(start), Track.playDelay * 1000);
+  }
+
+  async initRecorder(track) {
+    const stream = await this.getMicrophoneStream();
+    if (stream == null) {
+      console.log("Failed to get microphone stream");
+      return;
+    }
+
+    track.recordingUpdate(null, this.ac, this.masterGainNode, this.samplesPerPixel, this.sampleRate)
+
+    this.mediaRecorder = new MediaRecorder(stream);
+
+    this.mediaRecorder.onstart = () => {
+      const start = this.cursor;
+      track.setEnabledStates();
+      track.setStartTime(start);
+
+      this.recordingTrack = track;
+
+      this.chunks = [];
+      this.blob = new Blob([], { type: "audio/ogg; codecs=opus" });
+
+      this.recorderWorkerWorking = false;
+    };
+
+    this.recorderWorker = new InlineWorker(RecorderWorkerFunction);
+
+    this.mediaRecorder.ondataavailable = (e) => {
+      this.chunks.push(e.data);
+
+      if (!this.recorderWorkerWorking) {
+        this.recorderWorkerWorking = true;
+
+        const recording = new Blob(this.chunks, { type: "audio/ogg; codecs=opus"});
+        track
+        .recordingUpdate(recording, this.ac, this.masterGainNode, this.samplesPerPixel, this.sampleRate)
+        .then(() => this.adjustDuration())
+        .then(() => this.drawRequest())
+        .then(() => this.recorderWorkerWorking = false);
+        //const loader = LoaderFactory.createLoader(recording, this.ac);
+
+        // loader.load().then((audioBuffer) => {
+        //   this.recorderWorker.postMessage({
+        //     samples: audioBuffer.getChannelData(0),
+        //     samplesPerPixel: this.samplesPerPixel,
+        //   });
+        // });
+      }
+    }
+
+    this.recorderWorker.onmessage = (e) => {
+      track.endTime = this.cursor;
+      this.recordingTrack.setPeaks(e.data);
+      this.recorderWorkerWorking = false;
+      this.adjustDuration();
+      this.drawRequest();
+    };
+
+    this.mediaRecorder.onstop = () => {
+      const recording = new Blob(this.chunks, { type: "audio/ogg; codecs=opus" });
+      this.chunks = [];
+      stream.getTracks().forEach((track) => track.stop());
+
+      this.ee.emit(PlaylistEvents.RECORDING_FINISHED, track.id, recording);
+
+      this.recordingTrack
+        .recordingUpdate(recording, this.ac, this.masterGainNode, this.samplesPerPixel, this.sampleRate)
+        .then(() => this.adjustDuration())
+        .then(() => this.drawRequest())
+    };
+
+  }
+
 
   /*
     track instance of Track.
@@ -650,23 +704,6 @@ export default class Playlist {
 
       this.seek(0, 0, undefined);
     });
-  }
-
-  record() {
-    const playoutPromises = [];
-    const start = this.cursor;
-    this.mediaRecorder.start(300);
-
-    this.tracks.forEach((track) => {
-      track.setState("none");
-      playoutPromises.push(
-        track.schedulePlay(this.ac.currentTime, start, undefined, {
-          shouldPlay: this.shouldTrackPlay(track),
-        })
-      );
-    });
-
-    this.playoutPromises = playoutPromises;
   }
 
   startAnimation(startTime) {

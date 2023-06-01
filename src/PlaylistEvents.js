@@ -10,6 +10,7 @@
     COMPLETE_SHIFT: "completeshift",
     TRACK_START_TIME_UPDATE: "tracktimeupdate",
     RECORD: "record",
+    RECORDING_FINISHED: "recordingfinished",
     PLAY: "play",
     PAUSE: "pause",
     STOP: "stop",
