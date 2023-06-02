@@ -44,7 +44,7 @@ export default class Playlist {
     this.isAutomaticScroll = false;
     this.resetDrawTimer = undefined;
 
-    this.peaksWorkletLoaded = false;
+    this.isRecording = false;
   }
 
   // TODO extract into a plugin
@@ -153,9 +153,12 @@ export default class Playlist {
     this.tracks.sort((a, b) => {
       return trackIdIndexMap.get(a.id) - trackIdIndexMap.get(b.id);
     });
-
-    if (this.isPlaying())
-      this.restartPlayFrom(this.playbackSeconds);
+  }
+  
+  restartPlay()
+  {
+    if (!this.isPlaying()) return;
+    this.restartPlayFrom(this.playbackSeconds);
   }
 
   async addTrack(trackInfo)
@@ -245,6 +248,7 @@ export default class Playlist {
   }
 
   async record(track) {
+    this.isRecording = true;
     await this.initRecorder(track);
 
     const playoutPromises = [];
@@ -288,7 +292,7 @@ export default class Playlist {
       this.recorderWorkerWorking = false;
     };
 
-    this.recorderWorker = new InlineWorker(RecorderWorkerFunction);
+    // this.recorderWorker = new InlineWorker(RecorderWorkerFunction);
 
     this.mediaRecorder.ondataavailable = (e) => {
       this.chunks.push(e.data);
@@ -313,29 +317,32 @@ export default class Playlist {
       }
     }
 
-    this.recorderWorker.onmessage = (e) => {
-      track.endTime = this.cursor;
-      this.recordingTrack.setPeaks(e.data);
-      this.recorderWorkerWorking = false;
-      this.adjustDuration();
-      this.drawRequest();
-    };
+    // this.recorderWorker.onmessage = (e) => {
+    //   track.endTime = this.cursor;
+    //   this.recordingTrack.setPeaks(e.data);
+    //   this.recorderWorkerWorking = false;
+    //   this.adjustDuration();
+    //   this.drawRequest();
+    // };
 
     this.mediaRecorder.onstop = () => {
       const recording = new Blob(this.chunks, { type: "audio/ogg; codecs=opus" });
       this.chunks = [];
       stream.getTracks().forEach((track) => track.stop());
 
-      this.ee.emit(PlaylistEvents.RECORDING_FINISHED, track.id, recording);
+      this.ee.emit(PlaylistEvents.RECORDING_FINISHED, track.id, recording, track.startTime);
 
       this.recordingTrack
         .recordingUpdate(recording, this.ac, this.masterGainNode, this.samplesPerPixel, this.sampleRate)
         .then(() => this.adjustDuration())
-        .then(() => this.drawRequest())
+        .then(() => this.drawRequest());
+
+      this.isRecording = false;
+      this.recordingTrack = null;
+      this.mediaRecorder = null;
     };
 
   }
-
 
   /*
     track instance of Track.
@@ -745,7 +752,7 @@ export default class Playlist {
     const cursorPos = cursor || this.cursor;
     const elapsed = currentTime - this.lastDraw;
 
-    if (this.isPlaying()) {
+    if (this.isPlaying() || this.isRecording) {
       const playbackSeconds = cursorPos + elapsed;
       this.ee.emit(PlaylistEvents.TIME_UPDATE, playbackSeconds);
       this.animationRequest = window.requestAnimationFrame(() => {
@@ -755,7 +762,8 @@ export default class Playlist {
       this.playbackSeconds = playbackSeconds;
       this.draw(this.render());
       this.lastDraw = currentTime;
-    } else {
+    }
+    else {
       if (
         cursorPos + elapsed >=
         (this.isSegmentSelection() ? selection.end : this.duration)
