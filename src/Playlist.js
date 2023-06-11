@@ -44,6 +44,9 @@ export default class Playlist {
     this.isAutomaticScroll = false;
     this.resetDrawTimer = undefined;
 
+    this.mimeType = undefined;
+    this.extension = undefined;
+
     this.isRecording = false;
   }
 
@@ -277,7 +280,7 @@ export default class Playlist {
 
     track.recordingUpdate(null, this.ac, this.masterGainNode, this.samplesPerPixel, this.sampleRate)
 
-    this.mediaRecorder = new MediaRecorder(stream);
+    this.mediaRecorder = new MediaRecorder(stream, { mimeType: this.mimeType });
 
     this.mediaRecorder.onstart = () => {
       const start = this.cursor;
