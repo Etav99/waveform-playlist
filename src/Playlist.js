@@ -11,12 +11,8 @@ import TimeScale from "./TimeScale";
 import Track from "./Track";
 import Playout from "./Playout";
 import PlaylistEvents from "./PlaylistEvents";
-import LoaderFactory from "./track/loader/LoaderFactory";
 import AnnotationList from "./annotation/AnnotationList";
 import ExportWavWorkerFunction from "./utils/exportWavWorker";
-import RecorderWorkerFunction from "./utils/recorderWorker";
-
-import { get } from "jquery";
 
 export default class Playlist {
   constructor() {
@@ -256,7 +252,8 @@ export default class Playlist {
 
     const playoutPromises = [];
     const start = this.cursor;
-    this.mediaRecorder.start(300);
+    setTimeout(this.startAnimation(start), Track.playDelay * 1000);
+    setTimeout(this.mediaRecorder.start(300), Track.playDelay * 1000);
 
     this.tracks.forEach((track) => {
       track.setState("none");
@@ -267,8 +264,10 @@ export default class Playlist {
       );
     });
 
+    
+
     this.playoutPromises = playoutPromises;
-    setTimeout(this.startAnimation(start), Track.playDelay * 1000);
+    
   }
 
   async initRecorder(track) {
