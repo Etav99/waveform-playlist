@@ -108,10 +108,6 @@ export default class Track{
     this.setStereoPanValue(stereoPan);
     if (effects)
       this.setEffects(effects);
-    if (muted)
-      this.muteTrack(track);
-    if (soloed)
-      this.soloTrack(track);
 
       this.calculatePeaks(samplesPerPixel, sampleRate);
   }

@@ -169,15 +169,20 @@ export default class Playlist {
     this.trackIdMap.set(track.id, track);
     this.tracks.push(track);
     await track.initializeAsync(trackInfo, this.ac, this.masterGainNode, this.ee, this.getState(), this.samplesPerPixel, this.sampleRate);
+    if (trackInfo.muted) this.setMuteTrack(track);
+    if (trackInfo.soloed) this.setSoloTrack(track);
+
     this.adjustDuration();
   } 
 
   async updateTrack(trackInfo, sourceChanged)
   {
     let track = this.getTrackById(trackInfo.id);
-    if (track === undefined) throw new Error("Track does not exist");
+    if (track === undefined || track == null) throw new Error("Track does not exist");
 
     await track.initializeAsync(trackInfo, this.ac, this.masterGainNode, this.ee, this.getState(), this.samplesPerPixel, this.sampleRate, sourceChanged);
+    if (trackInfo.muted) this.setMuteTrack(track);
+    if (trackInfo.soloed) this.setSoloTrack(track);
 
     const selection = trackInfo.selected;
     if (selection !== undefined) {
@@ -478,6 +483,19 @@ export default class Playlist {
     this.tracks.forEach((track) => {
       track.calculatePeaks(zoom, this.sampleRate);
     });
+  }
+
+  setMuteTrack(track) {
+    const index = this.mutedTracks.indexOf(track);
+    if (index == -1)
+      this.mutedTracks.push(track);
+  }
+
+  setSoloTrack(track) {
+    const index = this.soloedTracks.indexOf(track);
+    if (index == -1) {
+      this.soloedTracks.push(track);
+    }
   }
 
   muteTrack(track) {
