@@ -29,6 +29,7 @@ export default class Playlist {
     this.duration = 0;
     this.scrollLeft = 0;
     this.scrollTimer = undefined;
+    this.shouldScrollToSelection = false;
     this.showTimescale = false;
     // whether a user is scrolling the waveform
     this.isScrolling = false;
@@ -184,11 +185,11 @@ export default class Playlist {
     if (trackInfo.muted) this.setMuteTrack(track);
     if (trackInfo.soloed) this.setSoloTrack(track);
 
-    const selection = trackInfo.selected;
-    if (selection !== undefined) {
-      this.setActiveTrack(track);
-      this.setTimeSelection(selection.start, selection.end);
-    }
+    //const selection = trackInfo.selected;
+    //if (selection !== undefined) {
+    //  this.setActiveTrack(track);
+    //  this.setTimeSelection(selection.start, selection.end);
+    //}
 
     this.adjustDuration();
   }
@@ -205,6 +206,11 @@ export default class Playlist {
   removeTrackById(id) {
     const track = this.getTrackById(id);
     if (track === undefined) throw new Error("Track does not exist");
+
+    // if active track is removed, set active track to the first track to none
+    if (this.getActiveTrack() === track)
+        this.setActiveTrack(undefined);
+
     this.removeTrack(track);
   }
 
@@ -680,6 +686,7 @@ export default class Playlist {
 
     this.pausedAt = undefined;
     this.playbackSeconds = 0;
+    this.shouldScrollToSelection = true;
     return this.playbackReset();
   }
 
@@ -890,7 +897,7 @@ export default class Playlist {
       "div.playlist-tracks",
       {
         attributes: {
-          style: "overflow: scroll;",
+          style: "overflow-x: scroll; overflow-y: auto;",
         },
         onscroll: (e) => {
           this.scrollLeft = pixelsToSeconds(

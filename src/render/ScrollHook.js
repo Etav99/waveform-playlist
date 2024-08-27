@@ -13,28 +13,34 @@ export default class {
     if (!playlist.isScrolling) {
       const el = node;
 
-      if (playlist.isAutomaticScroll) {
-        const rect = node.getBoundingClientRect();
-        const controlWidth = playlist.controls.show
-          ? playlist.controls.width
-          : 0;
-        const width = pixelsToSeconds(
-          rect.width - controlWidth,
-          playlist.samplesPerPixel,
-          playlist.sampleRate
-        );
+      // print automatic scroll
+      console.log("playlist.isAutomaticScroll: ", playlist.isAutomaticScroll);
 
-        const timePoint = playlist.isPlaying()
-          ? playlist.playbackSeconds
-          : playlist.getTimeSelection().start;
+        if ((playlist.isAutomaticScroll && playlist.isPlaying()) || playlist.shouldScrollToSelection)
+        {
+            const rect = node.getBoundingClientRect();
+            const controlWidth = playlist.controls.show
+                ? playlist.controls.width
+                : 0;
+            const width = pixelsToSeconds(
+                rect.width - controlWidth,
+                playlist.samplesPerPixel,
+                playlist.sampleRate
+            );
 
-        if (
-          timePoint < playlist.scrollLeft ||
-          timePoint >= playlist.scrollLeft + width
-        ) {
-          playlist.scrollLeft = Math.min(timePoint, playlist.duration - width);
+            const timePoint = playlist.shouldScrollToSelection
+                ? playlist.getTimeSelection().start
+                : playlist.playbackSeconds
+
+            playlist.shouldScrollToSelection = false;
+
+            if (
+                timePoint < playlist.scrollLeft ||
+                timePoint >= playlist.scrollLeft + width
+            ) {
+                playlist.scrollLeft = Math.min(timePoint, playlist.duration - width);
+            }
         }
-      }
 
       const left = secondsToPixels(
         playlist.scrollLeft,

@@ -13,8 +13,8 @@ export default class CursorState {
 
   click(e) {
     e.preventDefault();
-    if(this.track.isLocked())
-      return;
+    //if(this.track.isLocked())
+    //  return;
 
     const startX = e.offsetX;
     const startTime = pixelsToSeconds(
